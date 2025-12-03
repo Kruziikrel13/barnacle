@@ -9,7 +9,7 @@ use std::fmt::Debug;
 use agdb::{DbId, DbValue, QueryBuilder};
 use thiserror::Error;
 
-use crate::repository::db::DbHandle;
+use crate::repository::db::{DbHandle, Uid};
 
 mod game;
 mod mod_;
@@ -65,4 +65,33 @@ where
     )?;
 
     Ok(())
+}
+
+/// Get a [`Uid`] to be used with a newly inserted element.
+pub(crate) fn next_uid(db: &mut DbHandle) -> Result<Uid> {
+    db.write().transaction_mut(|t| {
+        let uid = t
+            .exec(
+                QueryBuilder::select()
+                    .values("next_uid")
+                    .ids("next_uid")
+                    .query(),
+            )?
+            .elements
+            .pop()
+            .unwrap()
+            .values
+            .pop()
+            .unwrap()
+            .value
+            .to_u64()
+            .unwrap();
+        t.exec_mut(
+            QueryBuilder::insert()
+                .values([[("next_uid", uid + 1).into()]])
+                .ids("next_uid")
+                .query(),
+        )?;
+        Ok(uid)
+    })
 }

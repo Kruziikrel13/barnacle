@@ -1,10 +1,6 @@
 use std::{
     fs::{self, File},
     path::{Path, PathBuf},
-    sync::{
-        Arc,
-        atomic::{AtomicBool, Ordering},
-    },
 };
 
 use agdb::{DbId, QueryBuilder, QueryId};
@@ -17,12 +13,7 @@ use crate::{
     repository::{
         CoreConfigHandle,
         db::DbHandle,
-        entities::{
-            Error, Result, get_field,
-            mod_::Mod,
-            profile::{self, Profile},
-            set_field,
-        },
+        entities::{Result, get_field, mod_::Mod, next_uid, profile::Profile, set_field},
         models::{DeployKind, GameModel, ModModel, ProfileModel},
     },
 };
@@ -33,39 +24,29 @@ use crate::{
 /// managing profiles and mods. Always reflects the current database state.
 #[derive(Debug, Clone)]
 pub struct Game {
-    id: DbId,
-    valid: Arc<AtomicBool>,
+    db_id: DbId,
     db: DbHandle,
     cfg: CoreConfigHandle,
 }
 
 impl Game {
-    pub(crate) fn from_id(id: DbId, db: DbHandle, cfg: CoreConfigHandle) -> Self {
-        Self {
-            id,
-            valid: Arc::new(AtomicBool::new(true)),
-            db,
-            cfg,
-        }
+    pub(crate) fn from_id(db_id: DbId, db: DbHandle, cfg: CoreConfigHandle) -> Self {
+        Self { db_id, db, cfg }
     }
 
     // TODO: Perform unique violation checking
     pub fn name(&self) -> Result<String> {
-        self.is_valid()?;
-
-        get_field(&self.db, self.id, "name")
+        get_field(&self.db, self.db_id, "name")
     }
 
     pub fn set_name(&mut self, new_name: &str) -> Result<()> {
-        self.is_valid()?;
-
         if new_name == self.name()? {
             return Ok(());
         }
 
         let old_dir = self.dir()?;
 
-        set_field(&mut self.db, self.id, "name", new_name)?;
+        set_field(&mut self.db, self.db_id, "name", new_name)?;
 
         let new_dir = self.dir()?;
         fs::rename(old_dir, new_dir).unwrap();
@@ -74,30 +55,22 @@ impl Game {
     }
 
     pub fn targets(&self) -> Result<Vec<PathBuf>> {
-        self.is_valid()?;
-
-        get_field(&self.db, self.id, "targets")
+        get_field(&self.db, self.db_id, "targets")
     }
 
     pub fn deploy_kind(&self) -> Result<DeployKind> {
-        self.is_valid()?;
-
-        get_field(&self.db, self.id, "deploy_kind")
+        get_field(&self.db, self.db_id, "deploy_kind")
     }
 
     pub fn set_deploy_kind(&mut self, new_deploy_kind: DeployKind) -> Result<()> {
-        self.is_valid()?;
-
         if new_deploy_kind == self.deploy_kind()? {
             return Ok(());
         }
 
-        set_field(&mut self.db, self.id, "deploy_kind", new_deploy_kind)
+        set_field(&mut self.db, self.db_id, "deploy_kind", new_deploy_kind)
     }
 
     pub fn dir(&self) -> Result<PathBuf> {
-        self.is_valid()?;
-
         Ok(self
             .cfg
             .read()
@@ -106,18 +79,14 @@ impl Game {
     }
 
     pub(crate) fn remove(self) -> Result<()> {
-        self.is_valid()?;
-
         let name = self.name()?;
         let dir = self.dir()?;
 
         self.db
             .write()
-            .exec_mut(QueryBuilder::remove().ids(self.id).query())?;
+            .exec_mut(QueryBuilder::remove().ids(self.db_id).query())?;
 
         fs::remove_dir_all(dir).unwrap();
-
-        self.valid.store(false, Ordering::Relaxed);
 
         debug!("Removed game: {name}");
 
@@ -125,9 +94,8 @@ impl Game {
     }
 
     pub fn add_profile(&mut self, name: &str) -> Result<Profile> {
-        self.is_valid()?;
-
-        let model = ProfileModel::new(name);
+        let uid = next_uid(&mut self.db)?;
+        let model = ProfileModel::new(uid, name);
 
         if self
             .profiles()?
@@ -150,7 +118,7 @@ impl Game {
             t.exec_mut(
                 QueryBuilder::insert()
                     .edges()
-                    .from([QueryId::from("profiles"), QueryId::from(self.id)])
+                    .from([QueryId::from("profiles"), QueryId::from(self.db_id)])
                     .to(profile_id)
                     .query(),
             )?;
@@ -168,16 +136,12 @@ impl Game {
     }
 
     pub fn remove_profile(&mut self, profile: Profile) -> Result<()> {
-        self.is_valid()?;
-
         profile.remove()?;
 
         Ok(())
     }
 
     pub fn profiles(&self) -> Result<Vec<Profile>> {
-        self.is_valid()?;
-
         Ok(self
             .db
             .read()
@@ -185,7 +149,7 @@ impl Game {
                 QueryBuilder::select()
                     .elements::<ProfileModel>()
                     .search()
-                    .from(self.id)
+                    .from(self.db_id)
                     .where_()
                     // .node()
                     // .and()
@@ -199,9 +163,8 @@ impl Game {
     }
 
     pub fn add_mod(&mut self, name: &str, path: Option<&Path>) -> Result<Mod> {
-        self.is_valid()?;
-
-        let new_mod = ModModel::new(name);
+        let uid = next_uid(&mut self.db)?;
+        let new_mod = ModModel::new(uid, name);
 
         // TODO: Only attempt to open the archive if the input_path is an archive
         if let Some(path) = path {
@@ -222,7 +185,7 @@ impl Game {
             t.exec_mut(
                 QueryBuilder::insert()
                     .edges()
-                    .from([QueryId::from("profiles"), QueryId::from(self.id)])
+                    .from([QueryId::from("profiles"), QueryId::from(self.db_id)])
                     .to(mod_id)
                     .query(),
             )?;
@@ -232,20 +195,9 @@ impl Game {
     }
 
     pub fn remove_mod(&mut self, mod_: Mod) -> Result<()> {
-        self.is_valid()?;
-
         mod_.remove()?;
 
         Ok(())
-    }
-
-    /// Ensure that the entity is pointing to an existent model in the database
-    fn is_valid(&self) -> Result<()> {
-        if self.valid.load(Ordering::Relaxed) {
-            Ok(())
-        } else {
-            Err(Error::StaleEntity)
-        }
     }
 
     /// Insert a new [`Game`] into the database. The [`Game`] must have a unique name.
@@ -318,7 +270,7 @@ mod test {
 
     #[test]
     fn test_add() {
-        let repo = Repository::mock();
+        let mut repo = Repository::mock();
 
         repo.add_game("Skyrim", DeployKind::CreationEngine).unwrap();
         repo.add_game("Morrowind", DeployKind::OpenMW).unwrap();
@@ -335,7 +287,7 @@ mod test {
 
     #[test]
     fn test_remove() {
-        let repo = Repository::mock();
+        let mut repo = Repository::mock();
 
         let game = repo.add_game("Skyrim", DeployKind::CreationEngine).unwrap();
 
@@ -348,7 +300,7 @@ mod test {
 
     #[test]
     fn test_set_name() {
-        let repo = Repository::mock();
+        let mut repo = Repository::mock();
 
         let mut game = repo.add_game("Skyrim", DeployKind::CreationEngine).unwrap();
 
@@ -361,7 +313,7 @@ mod test {
 
     #[test]
     fn test_dir() {
-        let repo = Repository::mock();
+        let mut repo = Repository::mock();
 
         let game = repo
             .add_game("Fallout: New Vegas", DeployKind::Gamebryo)

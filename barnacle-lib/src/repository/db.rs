@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use agdb::{DbAny, QueryBuilder};
+use agdb::{DbAny, DbError, QueryBuilder};
 use derive_more::Deref;
 use parking_lot::RwLock;
 
@@ -8,6 +8,9 @@ use crate::{
     fs::state_dir,
     repository::models::{CURRENT_MODEL_VERSION, ModelVersion},
 };
+
+/// A unique ID representing an entity in the database
+pub(crate) type Uid = u64;
 
 #[derive(Debug, Clone, Deref)]
 pub(crate) struct DbHandle {
@@ -30,7 +33,6 @@ impl DbHandle {
     }
 
     fn init(&mut self) {
-        // Insert aliases if they don't exist
         if self
             .db
             .read()
@@ -41,20 +43,36 @@ impl DbHandle {
         {
             self.db
                 .write()
-                .exec_mut(
-                    QueryBuilder::insert()
-                        .nodes()
-                        .aliases([
-                            "games",
-                            "profiles",
-                            "mods",
-                            "tools",
-                            // State
-                            "current_profile",
-                            "model_version",
-                        ])
-                        .query(),
-                )
+                .transaction_mut(|t| -> Result<(), DbError> {
+                    t.exec_mut(
+                        // Insert aliases if they don't exist
+                        QueryBuilder::insert()
+                            .nodes()
+                            .aliases([
+                                // Root element nodes
+                                "games",
+                                "profiles",
+                                "mods",
+                                "tools",
+                                // State nodes
+                                "current_profile",
+                                "model_version",
+                                "next_uid",
+                            ])
+                            .query(),
+                    )?;
+
+                    // Signifies what the UID should be for a newly inserted element. It gets
+                    // incremented with every new element.
+                    t.exec_mut(
+                        QueryBuilder::insert()
+                            .values([[("next_uid", 0).into()]])
+                            .ids("next_uid")
+                            .query(),
+                    )?;
+
+                    Ok(())
+                })
                 .unwrap();
         }
 

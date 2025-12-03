@@ -284,7 +284,7 @@ mod test {
 
     #[test]
     fn test_add() {
-        let repo = Repository::mock();
+        let mut repo = Repository::mock();
 
         let mut game = repo.add_game("Morrowind", DeployKind::OpenMW).unwrap();
         game.add_profile("Test").unwrap();
