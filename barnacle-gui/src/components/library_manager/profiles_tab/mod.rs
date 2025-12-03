@@ -5,7 +5,7 @@ use barnacle_lib::{
 };
 use iced::{
     Element, Length, Task,
-    widget::{Column, button, column, container, row, scrollable, space, text},
+    widget::{Column, button, column, combo_box, container, row, scrollable, space, text},
 };
 
 use crate::{
@@ -39,6 +39,7 @@ pub enum State {
 
 pub struct Tab {
     selected_game: Game,
+    // selected_game_state: combo_box::State<Game>,
     state: State,
     show_new_dialog: bool,
     show_edit_dialog: bool,
@@ -49,6 +50,7 @@ pub struct Tab {
 
 impl Tab {
     pub fn new(repo: Repository) -> (Self, Task<Message>) {
+        let games = repo.games().unwrap();
         let selected_game = repo.games().unwrap().pop().unwrap();
 
         let (new_dialog, _) = NewDialog::new(selected_game.clone());
@@ -57,6 +59,9 @@ impl Tab {
         (
             Self {
                 selected_game: selected_game.clone(),
+                // selected_game_state: combo_box::State::new(
+                //     games.iter().map(|g| g.name().unwrap()).collect(),
+                // ),
                 state: State::Loading,
                 show_new_dialog: false,
                 show_edit_dialog: false,

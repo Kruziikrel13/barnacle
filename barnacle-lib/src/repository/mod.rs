@@ -7,19 +7,18 @@ use crate::{
     repository::{
         config::{CoreConfig, CoreConfigHandle},
         db::DbHandle,
+        db::models::GameModel,
         entities::next_uid,
-        models::GameModel,
     },
 };
 
 mod db;
-mod models;
 
 pub mod config;
 pub mod entities;
 
+pub use db::models::DeployKind;
 pub use entities::{Game, Mod, ModEntry, Profile, Tool};
-pub use models::DeployKind;
 
 /// Central access point for all persistent data.
 ///

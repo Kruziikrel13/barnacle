@@ -14,8 +14,8 @@ use tracing::debug;
 use crate::repository::{
     CoreConfigHandle,
     db::DbHandle,
+    db::models::GameModel,
     entities::{Error, Result, game::Game, get_field},
-    models::GameModel,
 };
 
 /// Represents a mod entity in the Barnacle system.

@@ -14,8 +14,8 @@ use tracing::debug;
 use crate::repository::{
     CoreConfigHandle,
     db::DbHandle,
+    db::models::{GameModel, ModEntryModel, ModModel, ProfileModel},
     entities::{Error, Result, game::Game, get_field, mod_::Mod, mod_entry::ModEntry, set_field},
-    models::{GameModel, ModEntryModel, ModModel, ProfileModel},
 };
 
 /// Represents a profile entity in the Barnacle system.

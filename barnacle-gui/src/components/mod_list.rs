@@ -30,7 +30,7 @@ impl ModList {
     pub fn new(repo: Repository) -> (Self, Task<Message>) {
         let task = Task::perform(
             {
-                let repo = repo.clone();
+                let mut repo = repo.clone();
                 async move {
                     if repo.games().unwrap().is_empty() {
                         let mut game = repo

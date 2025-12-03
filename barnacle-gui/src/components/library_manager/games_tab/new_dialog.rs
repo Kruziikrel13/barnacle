@@ -52,7 +52,7 @@ impl NewDialog {
             }
             Message::CancelPressed => Task::none(),
             Message::CreatePressed => {
-                let repo = self.repo.clone();
+                let mut repo = self.repo.clone();
                 let name = self.name.clone();
                 let deploy_kind = self.deploy_kind.unwrap();
 

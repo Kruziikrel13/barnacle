@@ -13,8 +13,8 @@ use crate::{
     repository::{
         CoreConfigHandle,
         db::DbHandle,
+        db::models::{DeployKind, GameModel, ModModel, ProfileModel},
         entities::{Result, get_field, mod_::Mod, next_uid, profile::Profile, set_field},
-        models::{DeployKind, GameModel, ModModel, ProfileModel},
     },
 };
 

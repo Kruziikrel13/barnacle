@@ -6,8 +6,10 @@ use parking_lot::RwLock;
 
 use crate::{
     fs::state_dir,
-    repository::models::{CURRENT_MODEL_VERSION, ModelVersion},
+    repository::db::models::{CURRENT_MODEL_VERSION, ModelVersion},
 };
+
+pub(crate) mod models;
 
 /// A unique ID representing an entity in the database
 pub(crate) type Uid = u64;
