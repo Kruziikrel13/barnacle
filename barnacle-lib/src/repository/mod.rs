@@ -44,8 +44,8 @@ impl Repository {
         Ok(Game::add(self.db.clone(), self.cfg.clone(), model)?)
     }
 
-    pub fn remove_game(&self, target: Game) -> Result<()> {
-        target.remove()?;
+    pub fn remove_game(&self, game: Game) -> Result<()> {
+        game.remove()?;
 
         Ok(())
     }

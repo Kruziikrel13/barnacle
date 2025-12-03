@@ -17,7 +17,12 @@ use crate::{
     repository::{
         CoreConfigHandle,
         db::DbHandle,
-        entities::{Error, Result, get_field, mod_::Mod, profile::Profile, set_field},
+        entities::{
+            Error, Result, get_field,
+            mod_::Mod,
+            profile::{self, Profile},
+            set_field,
+        },
         models::{DeployKind, GameModel, ModModel, ProfileModel},
     },
 };
@@ -113,6 +118,7 @@ impl Game {
         fs::remove_dir_all(dir).unwrap();
 
         self.valid.store(false, Ordering::Relaxed);
+
         debug!("Removed game: {name}");
 
         Ok(())
@@ -161,20 +167,10 @@ impl Game {
         Ok(profile)
     }
 
-    // TODO: Make this just a helper that calls Profile::remove()
     pub fn remove_profile(&mut self, profile: Profile) -> Result<()> {
         self.is_valid()?;
 
-        let name = profile.name()?;
-        let dir = profile.dir()?;
-
-        self.db
-            .write()
-            .exec_mut(QueryBuilder::remove().ids(profile.id).query())?;
-
-        fs::remove_dir_all(dir).unwrap();
-
-        debug!("Removed game: {name}");
+        profile.remove()?;
 
         Ok(())
     }
@@ -256,7 +252,7 @@ impl Game {
 
         let game = db
             .write()
-            .transaction_mut(|t| -> std::result::Result<Game, agdb::DbError> {
+            .transaction_mut(|t| -> Result<Game> {
                 let game_id = t
                     .exec_mut(QueryBuilder::insert().element(model).query())
                     .unwrap()

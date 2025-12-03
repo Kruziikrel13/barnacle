@@ -1,12 +1,20 @@
-use std::{fs, path::PathBuf};
+use std::{
+    fs,
+    path::PathBuf,
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    },
+};
 
 use agdb::{CountComparison, DbId, QueryBuilder};
 use heck::ToSnakeCase;
+use tracing::debug;
 
 use crate::repository::{
     CoreConfigHandle,
     db::DbHandle,
-    entities::{Result, game::Game, get_field, mod_::Mod, mod_entry::ModEntry, set_field},
+    entities::{Error, Result, game::Game, get_field, mod_::Mod, mod_entry::ModEntry, set_field},
     models::{GameModel, ModEntryModel, ModModel, ProfileModel},
 };
 
@@ -17,22 +25,32 @@ use crate::repository::{
 #[derive(Debug, Clone)]
 pub struct Profile {
     pub(crate) id: DbId,
+    valid: Arc<AtomicBool>,
     pub(crate) db: DbHandle,
     pub(crate) cfg: CoreConfigHandle,
 }
 
 impl Profile {
     pub(crate) fn from_id(id: DbId, db: DbHandle, cfg: CoreConfigHandle) -> Self {
-        Self { id, db, cfg }
+        Self {
+            id,
+            valid: Arc::new(AtomicBool::new(true)),
+            db,
+            cfg,
+        }
     }
 
     // Fields
 
     pub fn name(&self) -> Result<String> {
+        self.is_valid()?;
+
         get_field(&self.db, self.id, "name")
     }
 
     pub fn set_name(&mut self, new_name: &str) -> Result<()> {
+        self.is_valid()?;
+
         if new_name == self.name()? {
             return Ok(());
         }
@@ -50,10 +68,14 @@ impl Profile {
     // Utility
 
     pub fn dir(&self) -> Result<PathBuf> {
+        self.is_valid()?;
+
         Ok(self.parent()?.dir()?.join(self.name()?.to_snake_case()))
     }
 
     pub(crate) fn set_current(db: DbHandle, profile: &Profile) -> Result<()> {
+        profile.is_valid()?;
+
         db.write().transaction_mut(|t| {
             // Delete existing current_profile, if it exists
             t.exec_mut(
@@ -99,6 +121,8 @@ impl Profile {
 
     /// Returns the parent [`Game`] of this [`Profile`]
     pub fn parent(&self) -> Result<Game> {
+        self.is_valid()?;
+
         let parent_game_id = self
             .db
             .read()
@@ -126,6 +150,8 @@ impl Profile {
 
     /// Add a new [`ModEntry`] to a [`Profile`] that points to the [`Mod`] given by ID.
     pub fn add_mod_entry(&mut self, mod_: Mod) -> Result<()> {
+        self.is_valid()?;
+
         let maybe_last_entry_id = self.mod_entries()?.last().map(|e| e.entry_id);
 
         self.db.write().transaction_mut(|t| -> Result<()> {
@@ -177,6 +203,8 @@ impl Profile {
     }
 
     pub fn mod_entries(&self) -> Result<Vec<ModEntry>> {
+        self.is_valid()?;
+
         let mod_entry_ids: Vec<DbId> = self
             .db
             .read()
@@ -221,6 +249,32 @@ impl Profile {
             .zip(mod_ids)
             .map(|(entry_id, mod_id)| ModEntry::from_id(entry_id, mod_id, self.db.clone()))
             .collect())
+    }
+
+    pub(crate) fn remove(self) -> Result<()> {
+        let name = self.name()?;
+        let dir = self.dir()?;
+
+        self.db
+            .write()
+            .exec_mut(QueryBuilder::remove().ids(self.id).query())?;
+
+        fs::remove_dir_all(dir).unwrap();
+
+        self.valid.store(false, Ordering::Relaxed);
+
+        debug!("Removed game: {name}");
+
+        Ok(())
+    }
+
+    /// Ensure that the entity is pointing to an existent model in the database
+    fn is_valid(&self) -> Result<()> {
+        if self.valid.load(Ordering::Relaxed) {
+            Ok(())
+        } else {
+            Err(Error::StaleEntity)
+        }
     }
 }
 
