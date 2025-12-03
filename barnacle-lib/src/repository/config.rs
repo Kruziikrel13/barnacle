@@ -7,7 +7,7 @@ use std::{
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 
-use crate::fs::config_dir;
+use crate::fs::{config_dir, data_dir};
 
 const CURRENT_CONFIG_VERSION: u16 = 1;
 const FILE_NAME: &str = "core.toml";
@@ -71,10 +71,7 @@ impl Default for CoreConfig {
     fn default() -> Self {
         Self {
             version: CURRENT_CONFIG_VERSION,
-            library_dir: xdg::BaseDirectories::with_prefix("barnacle")
-                .get_data_home()
-                .unwrap()
-                .join("library"),
+            library_dir: data_dir().join("library"),
         }
     }
 }
