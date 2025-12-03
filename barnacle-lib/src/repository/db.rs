@@ -5,7 +5,7 @@ use derive_more::Deref;
 use parking_lot::RwLock;
 
 use crate::{
-    fs::data_dir,
+    fs::state_dir,
     repository::models::{CURRENT_MODEL_VERSION, ModelVersion},
 };
 
@@ -17,7 +17,7 @@ pub(crate) struct DbHandle {
 
 impl DbHandle {
     pub fn new() -> Self {
-        let path = data_dir().join("data.db");
+        let path = state_dir().join("data.db");
         let path_str = path.to_str().unwrap();
         Self::init(DbAny::new_file(path_str).unwrap())
     }
@@ -65,6 +65,7 @@ impl DbHandle {
         if let Some(mv) = model_version {
             if mv.version() < CURRENT_MODEL_VERSION {
                 // TODO: perform migrations
+                // db.backup(filename)
                 dbg!(mv);
             }
         } else {
