@@ -263,7 +263,7 @@ impl Profile {
 
         self.valid.store(false, Ordering::Relaxed);
 
-        debug!("Removed game: {name}");
+        debug!("Removed profile: {name}");
 
         Ok(())
     }

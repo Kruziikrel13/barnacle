@@ -1,4 +1,5 @@
 use std::{
+    fs,
     path::PathBuf,
     sync::{
         Arc,
@@ -8,6 +9,7 @@ use std::{
 
 use agdb::{DbId, QueryBuilder};
 use heck::ToSnakeCase;
+use tracing::debug;
 
 use crate::repository::{
     CoreConfigHandle,
@@ -75,6 +77,23 @@ impl Mod {
             self.db.clone(),
             self.cfg.clone(),
         ))
+    }
+
+    pub(crate) fn remove(self) -> Result<()> {
+        let name = self.name()?;
+        let dir = self.dir()?;
+
+        self.db
+            .write()
+            .exec_mut(QueryBuilder::remove().ids(self.id).query())?;
+
+        fs::remove_dir_all(dir).unwrap();
+
+        self.valid.store(false, Ordering::Relaxed);
+
+        debug!("Removed mod: {name}");
+
+        Ok(())
     }
 
     /// Ensure that the entity is pointing to an existent model in the database

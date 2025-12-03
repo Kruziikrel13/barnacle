@@ -231,6 +231,14 @@ impl Game {
         })
     }
 
+    pub fn remove_mod(&mut self, mod_: Mod) -> Result<()> {
+        self.is_valid()?;
+
+        mod_.remove()?;
+
+        Ok(())
+    }
+
     /// Ensure that the entity is pointing to an existent model in the database
     fn is_valid(&self) -> Result<()> {
         if self.valid.load(Ordering::Relaxed) {
