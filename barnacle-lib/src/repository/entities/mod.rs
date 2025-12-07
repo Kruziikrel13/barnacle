@@ -33,26 +33,6 @@ pub enum Error {
     StaleEntity,
 }
 
-pub(crate) fn get_field<T>(db: &DbHandle, id: DbId, field: &str) -> Result<T>
-where
-    T: TryFrom<DbValue>,
-    T::Error: Debug,
-{
-    let value = db
-        .read()
-        .exec(QueryBuilder::select().values(field).ids(id).query())?
-        .elements
-        .pop()
-        .expect("A successful query should not be empty")
-        .values
-        .pop()
-        .expect("A successful query should not be empty")
-        .value;
-
-    Ok(T::try_from(value)
-        .expect("Conversion from a `DbValue` must succeed. Perhaps the wrong type was expected from this field."))
-}
-
 pub(crate) fn set_field<T>(db: &mut DbHandle, id: DbId, field: &str, value: T) -> Result<()>
 where
     T: Into<DbValue>,
@@ -94,4 +74,19 @@ pub(crate) fn next_uid(db: &mut DbHandle) -> Result<Uid> {
         )?;
         Ok(uid)
     })
+}
+
+/// Get the [`Uid`] for a particular model
+pub(crate) fn uid(db: &DbHandle, db_id: DbId) -> Result<Uid> {
+    Ok(db
+        .read()
+        .exec(QueryBuilder::select().values("uid").ids(db_id).query())?
+        .elements
+        .pop()
+        .expect("successful queries should not be empty")
+        .values
+        .pop()
+        .expect("successful queries should not be empty")
+        .value
+        .to_u64()?)
 }

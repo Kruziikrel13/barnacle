@@ -35,14 +35,14 @@ impl DbHandle {
     }
 
     fn init(&mut self) {
-        if self
+        let alias_count = self
             .db
             .read()
             .exec(QueryBuilder::select().aliases().query())
             .unwrap()
-            .result
-            == 0
-        {
+            .result;
+
+        if alias_count == 0 {
             self.db
                 .write()
                 .transaction_mut(|t| -> Result<(), DbError> {

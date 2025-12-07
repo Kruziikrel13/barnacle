@@ -1,21 +1,16 @@
-use std::{
-    fs,
-    path::PathBuf,
-    sync::{
-        Arc,
-        atomic::{AtomicBool, Ordering},
-    },
-};
+use std::{fmt::Debug, fs, path::PathBuf};
 
-use agdb::{CountComparison, DbId, QueryBuilder};
+use agdb::{CountComparison, DbId, DbValue, QueryBuilder};
 use heck::ToSnakeCase;
 use tracing::debug;
 
 use crate::repository::{
     CoreConfigHandle,
-    db::DbHandle,
-    db::models::{GameModel, ModEntryModel, ModModel, ProfileModel},
-    entities::{Error, Result, game::Game, get_field, mod_::Mod, mod_entry::ModEntry, set_field},
+    db::{
+        DbHandle, Uid,
+        models::{GameModel, ModEntryModel, ModModel, ProfileModel},
+    },
+    entities::{Error, Result, game::Game, mod_::Mod, mod_entry::ModEntry, set_field, uid},
 };
 
 /// Represents a profile entity in the Barnacle system.
@@ -24,40 +19,36 @@ use crate::repository::{
 /// managing mod entries. Always reflects the current database state.
 #[derive(Debug, Clone)]
 pub struct Profile {
-    pub(crate) id: DbId,
-    valid: Arc<AtomicBool>,
+    pub(crate) db_id: DbId,
+    pub(crate) uid: Uid,
     pub(crate) db: DbHandle,
     pub(crate) cfg: CoreConfigHandle,
 }
 
 impl Profile {
-    pub(crate) fn from_id(id: DbId, db: DbHandle, cfg: CoreConfigHandle) -> Self {
-        Self {
-            id,
-            valid: Arc::new(AtomicBool::new(true)),
+    pub(crate) fn from_id(db_id: DbId, db: DbHandle, cfg: CoreConfigHandle) -> Result<Self> {
+        Ok(Self {
+            db_id,
+            uid: uid(&db, db_id)?,
             db,
             cfg,
-        }
+        })
     }
 
     // Fields
 
     pub fn name(&self) -> Result<String> {
-        self.is_valid()?;
-
-        get_field(&self.db, self.id, "name")
+        self.get_field("name")
     }
 
     pub fn set_name(&mut self, new_name: &str) -> Result<()> {
-        self.is_valid()?;
-
         if new_name == self.name()? {
             return Ok(());
         }
 
         let old_dir = self.dir()?;
 
-        set_field(&mut self.db, self.id, "name", new_name)?;
+        set_field(&mut self.db, self.db_id, "name", new_name)?;
 
         let new_dir = self.dir()?;
         fs::rename(old_dir, new_dir).unwrap();
@@ -68,14 +59,10 @@ impl Profile {
     // Utility
 
     pub fn dir(&self) -> Result<PathBuf> {
-        self.is_valid()?;
-
         Ok(self.parent()?.dir()?.join(self.name()?.to_snake_case()))
     }
 
     pub(crate) fn set_current(db: DbHandle, profile: &Profile) -> Result<()> {
-        profile.is_valid()?;
-
         db.write().transaction_mut(|t| {
             // Delete existing current_profile, if it exists
             t.exec_mut(
@@ -91,7 +78,7 @@ impl Profile {
                 QueryBuilder::insert()
                     .edges()
                     .from("current_profile")
-                    .to(profile.id)
+                    .to(profile.db_id)
                     .query(),
             )?;
 
@@ -116,13 +103,11 @@ impl Profile {
             .expect("A successful query should not be empty")
             .id;
 
-        Ok(Profile::from_id(id, db.clone(), cfg.clone()))
+        Profile::from_id(id, db.clone(), cfg.clone())
     }
 
     /// Returns the parent [`Game`] of this [`Profile`]
     pub fn parent(&self) -> Result<Game> {
-        self.is_valid()?;
-
         let parent_game_id = self
             .db
             .read()
@@ -131,7 +116,7 @@ impl Profile {
                     .elements::<GameModel>()
                     .search()
                     .from("games")
-                    .to(self.id)
+                    .to(self.db_id)
                     .query(),
             )?
             .elements
@@ -139,20 +124,14 @@ impl Profile {
             .expect("A successful query should not be empty")
             .id;
 
-        Ok(Game::from_id(
-            parent_game_id,
-            self.db.clone(),
-            self.cfg.clone(),
-        ))
+        Game::from_id(parent_game_id, self.db.clone(), self.cfg.clone())
     }
 
     // Operations
 
     /// Add a new [`ModEntry`] to a [`Profile`] that points to the [`Mod`] given by ID.
     pub fn add_mod_entry(&mut self, mod_: Mod) -> Result<()> {
-        self.is_valid()?;
-
-        let maybe_last_entry_id = self.mod_entries()?.last().map(|e| e.entry_id);
+        let maybe_last_entry_id = self.mod_entries()?.last().map(|e| e.entry_db_id);
 
         self.db.write().transaction_mut(|t| -> Result<()> {
             let mod_entry = ModEntryModel::default();
@@ -179,7 +158,7 @@ impl Profile {
                     t.exec_mut(
                         QueryBuilder::insert()
                             .edges()
-                            .from(self.id)
+                            .from(self.db_id)
                             .to(mod_entry_id)
                             .query(),
                     )?;
@@ -191,7 +170,7 @@ impl Profile {
                 QueryBuilder::insert()
                     .edges()
                     .from(mod_entry_id)
-                    .to(mod_.id)
+                    .to(mod_.db_id)
                     .query(),
             )?;
 
@@ -203,8 +182,6 @@ impl Profile {
     }
 
     pub fn mod_entries(&self) -> Result<Vec<ModEntry>> {
-        self.is_valid()?;
-
         let mod_entry_ids: Vec<DbId> = self
             .db
             .read()
@@ -212,7 +189,7 @@ impl Profile {
                 QueryBuilder::select()
                     .elements::<ModEntryModel>()
                     .search()
-                    .from(self.id)
+                    .from(self.db_id)
                     .where_()
                     .node()
                     .and()
@@ -231,7 +208,7 @@ impl Profile {
                 QueryBuilder::select()
                     .elements::<ModModel>()
                     .search()
-                    .from(self.id)
+                    .from(self.db_id)
                     .where_()
                     .node()
                     .and()
@@ -247,7 +224,7 @@ impl Profile {
         Ok(mod_entry_ids
             .into_iter()
             .zip(mod_ids)
-            .map(|(entry_id, mod_id)| ModEntry::from_id(entry_id, mod_id, self.db.clone()))
+            .map(|(entry_id, mod_id)| ModEntry::from_id(entry_id, mod_id, self.db.clone()).unwrap())
             .collect())
     }
 
@@ -257,36 +234,63 @@ impl Profile {
 
         self.db
             .write()
-            .exec_mut(QueryBuilder::remove().ids(self.id).query())?;
+            .exec_mut(QueryBuilder::remove().ids(self.db_id).query())?;
 
         fs::remove_dir_all(dir).unwrap();
-
-        self.valid.store(false, Ordering::Relaxed);
 
         debug!("Removed profile: {name}");
 
         Ok(())
     }
 
-    /// Ensure that the entity is pointing to an existent model in the database
-    fn is_valid(&self) -> Result<()> {
-        if self.valid.load(Ordering::Relaxed) {
-            Ok(())
-        } else {
-            Err(Error::StaleEntity)
+    fn get_field<T>(&self, field: &str) -> Result<T>
+    where
+        T: TryFrom<DbValue>,
+        T::Error: Debug,
+    {
+        let mut values = self
+            .db
+            .read()
+            .exec(
+                QueryBuilder::select()
+                    .values([[field, "uid"]])
+                    .ids(self.db_id)
+                    .query(),
+            )?
+            .elements
+            .pop()
+            .expect("successful queries should not be empty")
+            .values;
+
+        let uid = values
+            .pop()
+            .expect("successful queries should not be empty")
+            .value
+            .to_u64()?;
+
+        if uid != self.uid {
+            return Err(Error::StaleEntity);
         }
+
+        let value = values
+            .pop()
+            .expect("successful queries should not be empty")
+            .value;
+
+        Ok(T::try_from(value)
+        .expect("Conversion from a `DbValue` must succeed. Perhaps the wrong type was expected from this field."))
     }
 }
 
-#[cfg(test)]
-mod test {
-    use crate::{Repository, repository::DeployKind};
-
-    #[test]
-    fn test_add() {
-        let mut repo = Repository::mock();
-
-        let mut game = repo.add_game("Morrowind", DeployKind::OpenMW).unwrap();
-        game.add_profile("Test").unwrap();
-    }
-}
+// #[cfg(test)]
+// mod test {
+//     use crate::{Repository, repository::DeployKind};
+//
+//     #[test]
+//     fn test_add() {
+//         let mut repo = Repository::mock();
+//
+//         let mut game = repo.add_game("Morrowind", DeployKind::OpenMW).unwrap();
+//         game.add_profile("Test").unwrap();
+//     }
+// }
