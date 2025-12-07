@@ -10,7 +10,7 @@ workspace = true
 [dependencies]
 barnacle-lib = { path = "../barnacle-lib" }
 human-panic = "2.0.4"
-iced = { git = "https://github.com/iced-rs/iced", branch = "master", features = ["tokio", "svg", "advanced"] }
+iced = { version = "0.14.0", features = ["tokio", "svg", "advanced"] }
 include_dir = "0.7.4"
 serde = { version = "1.0.228", features = ["derive"] }
 strum = "0.27.2"
@@ -21,4 +21,4 @@ tracing-subscriber = { version = "0.3.22", features = ["env-filter"] }
 
 [features]
 default = ["debug"]
-debug = ["iced/debug"]
+debug = ["iced/debug", "iced/hot", "iced/time-travel"]
