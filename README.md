@@ -2,6 +2,9 @@
 [![Coverage](https://codecov.io/github/poperigby/barnacle/graph/badge.svg?token=7HKC2NYATF)](https://codecov.io/github/poperigby/barnacle)
 [![Matrix](https://img.shields.io/badge/Matrix-Join%20Chat-000000?logo=matrix&logoColor=white)](https://matrix.to/#/%23barnacle:matrix.org)
 
+> [!IMPORTANT]
+> This project is still in the pre-alpha development stage and is not yet ready for use.
+
 # Barnacle
 
 *Your mods, firmly encrusted* 🐚🌊
