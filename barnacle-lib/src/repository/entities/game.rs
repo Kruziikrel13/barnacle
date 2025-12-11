@@ -180,7 +180,7 @@ impl Game {
             change_dir_permissions(&self.dir()?, Permissions::ReadOnly);
         }
 
-        self.db.write().transaction_mut(|t| -> Result<Mod> {
+        let id = self.db.write().transaction_mut(|t| -> Result<DbId> {
             let mod_id = t
                 .exec_mut(QueryBuilder::insert().element(new_mod).query())?
                 .elements
@@ -197,8 +197,10 @@ impl Game {
                     .query(),
             )?;
 
-            Mod::from_id(mod_id, self.db.clone(), self.cfg.clone())
-        })
+            Ok(mod_id)
+        })?;
+
+        Mod::from_id(id, self.db.clone(), self.cfg.clone())
     }
 
     pub fn remove_mod(&mut self, mod_: Mod) -> Result<()> {
