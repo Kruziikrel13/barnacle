@@ -215,10 +215,9 @@ impl Game {
             panic!("UniqueViolation");
         }
 
-        // BUG: This hangs
-        let game = db
+        let id = db
             .write()
-            .transaction_mut(|t| -> Result<Game> {
+            .transaction_mut(|t| -> Result<DbId> {
                 let game_id = t
                     .exec_mut(QueryBuilder::insert().element(model).query())
                     .unwrap()
@@ -236,9 +235,11 @@ impl Game {
                 )
                 .unwrap();
 
-                Game::from_id(game_id, db.clone(), cfg.clone())
+                Ok(game_id)
             })
             .unwrap();
+
+        let game = Game::from_id(id, db.clone(), cfg.clone())?;
 
         fs::create_dir_all(game.dir().unwrap()).unwrap();
 
@@ -317,16 +318,16 @@ mod test {
         let mut repo = Repository::mock();
 
         repo.add_game("Skyrim", DeployKind::CreationEngine).unwrap();
-        // repo.add_game("Morrowind", DeployKind::OpenMW).unwrap();
-        //
-        // let games = repo.games().unwrap();
-        //
-        // assert_eq!(games.len(), 2);
-        // assert_eq!(games.first().unwrap().name().unwrap(), "Morrowind");
-        // assert_eq!(
-        //     games.last().unwrap().deploy_kind().unwrap(),
-        //     DeployKind::CreationEngine
-        // );
+        repo.add_game("Morrowind", DeployKind::OpenMW).unwrap();
+
+        let games = repo.games().unwrap();
+
+        assert_eq!(games.len(), 2);
+        assert_eq!(games.first().unwrap().name().unwrap(), "Morrowind");
+        assert_eq!(
+            games.last().unwrap().deploy_kind().unwrap(),
+            DeployKind::CreationEngine
+        );
     }
 
     #[test]
