@@ -53,7 +53,7 @@ impl Tool {
             .read()
             .exec(
                 QueryBuilder::select()
-                    .values([[field, "uid"]])
+                    .values([field, "uid"])
                     .ids(self.db_id)
                     .query(),
             )?

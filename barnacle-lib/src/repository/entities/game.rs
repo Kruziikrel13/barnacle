@@ -115,7 +115,7 @@ impl Game {
             panic!("Unique violation")
         }
 
-        let profile = self.db.write().transaction_mut(|t| -> Result<Profile> {
+        let id = self.db.write().transaction_mut(|t| -> Result<DbId> {
             let profile_id = t
                 .exec_mut(QueryBuilder::insert().element(model).query())?
                 .elements
@@ -132,8 +132,10 @@ impl Game {
                     .query(),
             )?;
 
-            Profile::from_id(profile_id, self.db.clone(), self.cfg.clone())
+            Ok(profile_id)
         })?;
+
+        let profile = Profile::from_id(id, self.db.clone(), self.cfg.clone())?;
 
         fs::create_dir_all(profile.dir()?).unwrap();
 

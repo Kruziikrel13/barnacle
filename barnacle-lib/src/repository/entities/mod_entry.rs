@@ -53,7 +53,7 @@ impl ModEntry {
             .read()
             .exec(
                 QueryBuilder::select()
-                    .values([[field, "uid"]])
+                    .values([field, "uid"])
                     .ids(self.entry_db_id)
                     .query(),
             )?

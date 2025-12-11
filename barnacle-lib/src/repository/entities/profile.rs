@@ -253,7 +253,7 @@ impl Profile {
             .read()
             .exec(
                 QueryBuilder::select()
-                    .values([[field, "uid"]])
+                    .values([field, "uid"])
                     .ids(self.db_id)
                     .query(),
             )?
@@ -282,15 +282,15 @@ impl Profile {
     }
 }
 
-// #[cfg(test)]
-// mod test {
-//     use crate::{Repository, repository::DeployKind};
-//
-//     #[test]
-//     fn test_add() {
-//         let mut repo = Repository::mock();
-//
-//         let mut game = repo.add_game("Morrowind", DeployKind::OpenMW).unwrap();
-//         game.add_profile("Test").unwrap();
-//     }
-// }
+#[cfg(test)]
+mod test {
+    use crate::{Repository, repository::DeployKind};
+
+    #[test]
+    fn test_add() {
+        let mut repo = Repository::mock();
+
+        let mut game = repo.add_game("Morrowind", DeployKind::OpenMW).unwrap();
+        game.add_profile("Test").unwrap();
+    }
+}
