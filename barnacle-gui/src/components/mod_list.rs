@@ -5,7 +5,7 @@ use iced::{
 };
 
 #[derive(Debug, Clone)]
-pub struct ModRow {
+pub struct ModEntryRow {
     name: String,
     notes: String,
 }
@@ -18,7 +18,7 @@ pub enum Message {
 pub enum State {
     Loading,
     Error(String),
-    Loaded(Vec<ModRow>),
+    Loaded(Vec<ModEntryRow>),
 }
 
 pub struct ModList {
@@ -30,23 +30,8 @@ impl ModList {
     pub fn new(repo: Repository) -> (Self, Task<Message>) {
         let task = Task::perform(
             {
-                let mut repo = repo.clone();
+                let repo = repo.clone();
                 async move {
-                    if repo.games().unwrap().is_empty() {
-                        let mut game = repo
-                            .add_game(
-                                "Skyrim",
-                                barnacle_lib::repository::DeployKind::CreationEngine,
-                            )
-                            .unwrap();
-                        let mut profile = game.add_profile("Test").unwrap();
-
-                        repo.set_current_profile(&profile).unwrap();
-
-                        let mod_ = game.add_mod("Test", None).unwrap();
-                        profile.add_mod_entry(mod_).unwrap();
-                    }
-
                     let current_profile = repo.clone().current_profile().unwrap();
                     current_profile.mod_entries().unwrap()
                 }
@@ -65,10 +50,10 @@ impl ModList {
 
     pub fn update(&mut self, message: Message) -> Task<Message> {
         match message {
-            Message::Loaded(mods) => {
-                let rows = mods
+            Message::Loaded(mod_entries) => {
+                let rows = mod_entries
                     .iter()
-                    .map(|m| ModRow {
+                    .map(|m| ModEntryRow {
                         name: m.name().unwrap().to_string(),
                         notes: m.notes().unwrap().to_string(),
                     })
@@ -87,8 +72,8 @@ impl ModList {
             State::Error(e) => column![text(e)],
             State::Loaded(rows) => {
                 let columns = [
-                    table::column(text("Name"), |row: ModRow| text(row.name)),
-                    table::column(text("Notes"), |row: ModRow| text(row.notes)),
+                    table::column(text("Name"), |row: ModEntryRow| text(row.name)),
+                    table::column(text("Notes"), |row: ModEntryRow| text(row.notes)),
                 ];
 
                 column![scrollable(table(columns, rows.clone()).width(Length::Fill))]

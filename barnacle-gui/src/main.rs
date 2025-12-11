@@ -53,9 +53,24 @@ impl App {
         tracing::subscriber::set_global_default(subscriber)
             .expect("setting default subscriber failed");
 
-        let repo = Repository::new();
+        let mut repo = Repository::new();
         let cfg = GuiConfig::load();
         let theme = cfg.theme();
+
+        if repo.games().unwrap().is_empty() {
+            let mut game = repo
+                .add_game(
+                    "Skyrim",
+                    barnacle_lib::repository::DeployKind::CreationEngine,
+                )
+                .unwrap();
+            let mut profile = game.add_profile("Test").unwrap();
+
+            repo.set_current_profile(&profile).unwrap();
+
+            let mod_ = game.add_mod("Test", None).unwrap();
+            profile.add_mod_entry(mod_).unwrap();
+        }
 
         let (mod_list, mod_list_task) = ModList::new(repo.clone());
         let (library_manager, library_manager_task) = LibraryManager::new(repo.clone());

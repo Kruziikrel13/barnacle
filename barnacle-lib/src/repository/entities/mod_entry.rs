@@ -18,6 +18,7 @@ pub struct ModEntry {
     pub(crate) entry_uid: Uid,
     /// The ID of the ModModel the entry points to
     pub(crate) mod_db_id: DbId,
+    pub(crate) mod_uid: Uid,
     pub(crate) db: DbHandle,
 }
 
@@ -25,25 +26,42 @@ impl ModEntry {
     pub(crate) fn from_id(entry_db_id: DbId, mod_db_id: DbId, db: DbHandle) -> Result<Self> {
         Ok(Self {
             entry_db_id,
-            mod_db_id,
             entry_uid: uid(&db, entry_db_id)?,
+            mod_db_id,
+            mod_uid: uid(&db, mod_db_id)?,
             db,
         })
     }
 
     pub fn name(&self) -> Result<String> {
-        self.get_field("name")
+        self.get_mod_field("name")
     }
 
     pub fn enabled(&self) -> Result<bool> {
-        self.get_field("enabled")
+        self.get_entry_field("enabled")
     }
 
     pub fn notes(&self) -> Result<String> {
-        self.get_field("notes")
+        self.get_entry_field("notes")
     }
 
-    fn get_field<T>(&self, field: &str) -> Result<T>
+    fn get_mod_field<T>(&self, field: &str) -> Result<T>
+    where
+        T: TryFrom<DbValue>,
+        T::Error: Debug,
+    {
+        self.get_field(self.mod_db_id, self.mod_uid, field)
+    }
+
+    fn get_entry_field<T>(&self, field: &str) -> Result<T>
+    where
+        T: TryFrom<DbValue>,
+        T::Error: Debug,
+    {
+        self.get_field(self.entry_db_id, self.entry_uid, field)
+    }
+
+    fn get_field<T>(&self, db_id: DbId, cached_uid: Uid, field: &str) -> Result<T>
     where
         T: TryFrom<DbValue>,
         T::Error: Debug,
@@ -54,7 +72,7 @@ impl ModEntry {
             .exec(
                 QueryBuilder::select()
                     .values([field, "uid"])
-                    .ids(self.entry_db_id)
+                    .ids(db_id)
                     .query(),
             )?
             .elements
@@ -68,7 +86,7 @@ impl ModEntry {
             .value
             .to_u64()?;
 
-        if uid != self.entry_uid {
+        if uid != cached_uid {
             return Err(Error::StaleEntity);
         }
 
@@ -77,7 +95,6 @@ impl ModEntry {
             .expect("successful queries should not be empty")
             .value;
 
-        Ok(T::try_from(value)
-        .expect("Conversion from a `DbValue` must succeed. Perhaps the wrong type was expected from this field."))
+        Ok(T::try_from(value).expect("conversion from a `DbValue` must succeed"))
     }
 }
