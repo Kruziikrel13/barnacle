@@ -68,8 +68,10 @@ impl App {
 
             repo.set_current_profile(&profile).unwrap();
 
-            let mod_ = game.add_mod("Test", None).unwrap();
-            profile.add_mod_entry(mod_).unwrap();
+            for i in 1..100 {
+                let mod_ = game.add_mod(format!("Mod{}", i).as_str(), None).unwrap();
+                profile.add_mod_entry(mod_).unwrap();
+            }
         }
 
         let (mod_list, mod_list_task) = ModList::new(repo.clone());

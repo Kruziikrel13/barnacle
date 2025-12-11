@@ -69,7 +69,7 @@ impl Tool {
             .to_u64()?;
 
         if uid != self.uid {
-            return Err(Error::StaleEntity);
+            return Err(Error::StaleEntityId);
         }
 
         let value = values

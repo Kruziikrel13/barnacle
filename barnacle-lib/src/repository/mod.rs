@@ -7,8 +7,6 @@ use crate::{
     repository::{
         config::{CoreConfig, CoreConfigHandle},
         db::DbHandle,
-        db::models::GameModel,
-        entities::next_uid,
     },
 };
 
@@ -40,10 +38,12 @@ impl Repository {
     }
 
     pub fn add_game(&mut self, name: &str, deploy_kind: DeployKind) -> Result<Game> {
-        let uid = next_uid(&mut self.db)?;
-        let model = GameModel::new(uid, name, deploy_kind);
-
-        Ok(Game::add(self.db.clone(), self.cfg.clone(), model)?)
+        Ok(Game::add(
+            self.db.clone(),
+            self.cfg.clone(),
+            name,
+            deploy_kind,
+        )?)
     }
 
     pub fn remove_game(&self, game: Game) -> Result<()> {

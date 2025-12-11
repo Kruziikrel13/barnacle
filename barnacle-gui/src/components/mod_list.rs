@@ -1,13 +1,14 @@
 use barnacle_lib::{Repository, repository::entities::ModEntry};
 use iced::{
     Element, Length, Task,
-    widget::{column, scrollable, table, text},
+    widget::{checkbox, column, scrollable, table, text},
 };
 
 #[derive(Debug, Clone)]
 pub struct ModEntryRow {
     name: String,
     notes: String,
+    enabled: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -56,6 +57,7 @@ impl ModList {
                     .map(|m| ModEntryRow {
                         name: m.name().unwrap().to_string(),
                         notes: m.notes().unwrap().to_string(),
+                        enabled: m.enabled().unwrap(),
                     })
                     .collect();
 
@@ -74,6 +76,7 @@ impl ModList {
                 let columns = [
                     table::column(text("Name"), |row: ModEntryRow| text(row.name)),
                     table::column(text("Notes"), |row: ModEntryRow| text(row.notes)),
+                    table::column(text("Status"), |row: ModEntryRow| checkbox(row.enabled)),
                 ];
 
                 column![scrollable(table(columns, rows.clone()).width(Length::Fill))]

@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use agdb::{DbAny, DbError, QueryBuilder};
+use agdb::{DbAny, DbError, DbId, QueryBuilder};
 use derive_more::Deref;
 use parking_lot::RwLock;
 

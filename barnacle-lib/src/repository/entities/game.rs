@@ -14,10 +14,10 @@ use crate::{
     repository::{
         CoreConfigHandle,
         db::{
-            DbHandle, Uid,
+            DbHandle,
             models::{DeployKind, GameModel, ModModel, ProfileModel},
         },
-        entities::{Error, Result, mod_::Mod, next_uid, profile::Profile, set_field, uid},
+        entities::{ElementId, Result, mod_::Mod, next_uid, profile::Profile},
     },
 };
 
@@ -27,27 +27,22 @@ use crate::{
 /// managing profiles and mods. Always reflects the current database state.
 #[derive(Debug, Clone)]
 pub struct Game {
-    db_id: DbId,
-    uid: Uid,
+    id: ElementId,
     db: DbHandle,
     cfg: CoreConfigHandle,
 }
 
 impl Game {
-    pub(crate) fn from_id(db_id: DbId, db: DbHandle, cfg: CoreConfigHandle) -> Result<Self> {
-        Ok(Self {
-            db_id,
-            uid: uid(&db, db_id)?,
-            db,
-            cfg,
-        })
+    /// Load some existing [`Game`] from the database
+    pub(crate) fn load(id: ElementId, db: DbHandle, cfg: CoreConfigHandle) -> Result<Self> {
+        Ok(Self { id, db, cfg })
     }
 
-    // TODO: Perform unique violation checking
     pub fn name(&self) -> Result<String> {
         self.get_field("name")
     }
 
+    // TODO: Perform unique violation checking
     pub fn set_name(&mut self, new_name: &str) -> Result<()> {
         if new_name == self.name()? {
             return Ok(());
@@ -55,7 +50,7 @@ impl Game {
 
         let old_dir = self.dir()?;
 
-        set_field(&mut self.db, self.db_id, "name", new_name)?;
+        self.set_field("name", new_name)?;
 
         let new_dir = self.dir()?;
         fs::rename(old_dir, new_dir).unwrap();
@@ -76,7 +71,7 @@ impl Game {
             return Ok(());
         }
 
-        set_field(&mut self.db, self.db_id, "deploy_kind", new_deploy_kind)
+        self.set_field("deploy_kind", new_deploy_kind)
     }
 
     pub fn dir(&self) -> Result<PathBuf> {
@@ -91,9 +86,10 @@ impl Game {
         let name = self.name()?;
         let dir = self.dir()?;
 
+        let id = self.id.db_id(&self.db)?;
         self.db
             .write()
-            .exec_mut(QueryBuilder::remove().ids(self.db_id).query())?;
+            .exec_mut(QueryBuilder::remove().ids(id).query())?;
 
         fs::remove_dir_all(dir).unwrap();
 
@@ -124,10 +120,11 @@ impl Game {
                 .id;
 
             // Link Profile to the specified Game node and root "profiles" node
+            let game_id = self.id.db_id(&self.db)?;
             t.exec_mut(
                 QueryBuilder::insert()
                     .edges()
-                    .from([QueryId::from("profiles"), QueryId::from(self.db_id)])
+                    .from([QueryId::from("profiles"), QueryId::from(game_id)])
                     .to(profile_id)
                     .query(),
             )?;
@@ -149,6 +146,7 @@ impl Game {
     }
 
     pub fn profiles(&self) -> Result<Vec<Profile>> {
+        let id = self.id.db_id(&self.db)?;
         Ok(self
             .db
             .read()
@@ -156,7 +154,7 @@ impl Game {
                 QueryBuilder::select()
                     .elements::<ProfileModel>()
                     .search()
-                    .from(self.db_id)
+                    .from(id)
                     .where_()
                     // .node()
                     // .and()
@@ -189,10 +187,11 @@ impl Game {
                 .id;
 
             // Link Profile to the specified Game node and root "profiles" node
+            let game_id = self.id.db_id(&self.db)?;
             t.exec_mut(
                 QueryBuilder::insert()
                     .edges()
-                    .from([QueryId::from("profiles"), QueryId::from(self.db_id)])
+                    .from([QueryId::from("profiles"), QueryId::from(game_id)])
                     .to(mod_id)
                     .query(),
             )?;
@@ -210,40 +209,48 @@ impl Game {
     }
 
     /// Insert a new [`Game`] into the database. The [`Game`] must have a unique name.
-    pub(crate) fn add(db: DbHandle, cfg: CoreConfigHandle, model: GameModel) -> Result<Self> {
+    pub(crate) fn add(
+        db: DbHandle,
+        cfg: CoreConfigHandle,
+        name: &str,
+        deploy_kind: DeployKind,
+    ) -> Result<Self> {
         if Game::list(db.clone(), cfg.clone())?
             .iter()
-            .any(|g| g.name().unwrap() == model.name)
+            .any(|g| g.name().unwrap() == name)
         {
             // return Err(Error::UniqueViolation(UniqueConstraint::GameName));
             panic!("UniqueViolation");
         }
 
-        let id = db
-            .write()
-            .transaction_mut(|t| -> Result<DbId> {
-                let game_id = t
-                    .exec_mut(QueryBuilder::insert().element(model).query())
-                    .unwrap()
-                    .elements
-                    .first()
-                    .unwrap()
-                    .id;
+        let element_id = ElementId::create(&db, |uid| {
+            let model = GameModel::new(uid, name, deploy_kind);
+            Ok(db
+                .write()
+                .transaction_mut(|t| -> Result<DbId> {
+                    let game_id = t
+                        .exec_mut(QueryBuilder::insert().element(model).query())
+                        .unwrap()
+                        .elements
+                        .first()
+                        .unwrap()
+                        .id;
 
-                t.exec_mut(
-                    QueryBuilder::insert()
-                        .edges()
-                        .from("games")
-                        .to(game_id)
-                        .query(),
-                )
-                .unwrap();
+                    t.exec_mut(
+                        QueryBuilder::insert()
+                            .edges()
+                            .from("games")
+                            .to(game_id)
+                            .query(),
+                    )
+                    .unwrap();
 
-                Ok(game_id)
-            })
-            .unwrap();
+                    Ok(game_id)
+                })
+                .unwrap())
+        })?;
 
-        let game = Game::from_id(id, db.clone(), cfg.clone())?;
+        let game = Game::load(element_id, db.clone(), cfg.clone())?;
 
         fs::create_dir_all(game.dir().unwrap()).unwrap();
 
@@ -268,7 +275,9 @@ impl Game {
             )?
             .elements
             .iter()
-            .map(|e| Game::from_id(e.id, db.clone(), cfg.clone()).unwrap())
+            .map(|e| {
+                Game::load(ElementId::load(&db, e.id).unwrap(), db.clone(), cfg.clone()).unwrap()
+            })
             .collect())
     }
 
@@ -277,37 +286,39 @@ impl Game {
         T: TryFrom<DbValue>,
         T::Error: Debug,
     {
-        let mut values = self
+        let value = self
             .db
             .read()
             .exec(
                 QueryBuilder::select()
-                    .values([field, "uid"])
-                    .ids(self.db_id)
+                    .values(field)
+                    .ids(self.id.db_id(&self.db)?)
                     .query(),
             )?
             .elements
             .pop()
             .expect("successful queries should not be empty")
-            .values;
-
-        let uid = values
-            .pop()
-            .expect("successful queries should not be empty")
-            .value
-            .to_u64()?;
-
-        if uid != self.uid {
-            return Err(Error::StaleEntity);
-        }
-
-        let value = values
+            .values
             .pop()
             .expect("successful queries should not be empty")
             .value;
 
-        Ok(T::try_from(value)
-        .expect("Conversion from a `DbValue` must succeed. Perhaps the wrong type was expected from this field."))
+        Ok(T::try_from(value).expect("conversion from a `DbValue` must succeed"))
+    }
+
+    pub(crate) fn set_field<T>(&mut self, field: &str, value: T) -> Result<()>
+    where
+        T: Into<DbValue>,
+    {
+        let element_id = self.id.db_id(&self.db)?;
+        self.db.write().exec_mut(
+            QueryBuilder::insert()
+                .values([[(field, value).into()]])
+                .ids(element_id)
+                .query(),
+        )?;
+
+        Ok(())
     }
 }
 
@@ -325,6 +336,7 @@ mod test {
         repo.add_game("Morrowind", DeployKind::OpenMW).unwrap();
 
         let games = repo.games().unwrap();
+        dbg!(&games);
 
         assert_eq!(games.len(), 2);
         assert_eq!(games.first().unwrap().name().unwrap(), "Morrowind");
@@ -355,9 +367,9 @@ mod test {
 
         assert_eq!(game.name().unwrap(), "Skyrim");
 
-        game.set_name("Skyrim 2: Electric Boogaloo").unwrap();
+        game.set_name("Skyrim 3: Electric Boogaloo").unwrap();
 
-        assert_eq!(game.name().unwrap(), "Skyrim 2: Electric Boogaloo");
+        assert_eq!(game.name().unwrap(), "Skyrim 3: Electric Boogaloo");
     }
 
     #[test]

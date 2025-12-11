@@ -7,7 +7,7 @@ use tracing::debug;
 use crate::repository::{
     CoreConfigHandle,
     db::{DbHandle, Uid, models::GameModel},
-    entities::{Error, Result, game::Game, uid},
+    entities::{ElementId, Error, Result, game::Game, uid},
 };
 
 /// Represents a mod entity in the Barnacle system.
@@ -58,7 +58,8 @@ impl Mod {
             .expect("A successful query should not be empty")
             .id;
 
-        Game::from_id(parent_game_id, self.db.clone(), self.cfg.clone())
+        let id = ElementId::load(&self.db, parent_game_id)?;
+        Game::load(id, self.db.clone(), self.cfg.clone())
     }
 
     pub(crate) fn remove(self) -> Result<()> {
@@ -102,7 +103,7 @@ impl Mod {
             .to_u64()?;
 
         if uid != self.uid {
-            return Err(Error::StaleEntity);
+            return Err(Error::StaleEntityId);
         }
 
         let value = values

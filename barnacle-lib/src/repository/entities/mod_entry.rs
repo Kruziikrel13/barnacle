@@ -87,7 +87,7 @@ impl ModEntry {
             .to_u64()?;
 
         if uid != cached_uid {
-            return Err(Error::StaleEntity);
+            return Err(Error::StaleEntityId);
         }
 
         let value = values
