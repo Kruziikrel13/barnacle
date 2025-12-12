@@ -336,6 +336,17 @@ mod test {
     }
 
     #[test]
+    fn test_name() {
+        let mut repo = Repository::mock();
+
+        let game = repo
+            .add_game("Fallout: New Vegas", DeployKind::Gamebryo)
+            .unwrap();
+
+        game.name().unwrap();
+    }
+
+    #[test]
     fn test_set_name() {
         let mut repo = Repository::mock();
 
@@ -346,6 +357,17 @@ mod test {
         game.set_name("Skyrim 3: Electric Boogaloo").unwrap();
 
         assert_eq!(game.name().unwrap(), "Skyrim 3: Electric Boogaloo");
+    }
+
+    #[test]
+    fn test_deploy_kind() {
+        let mut repo = Repository::mock();
+
+        let game = repo
+            .add_game("Fallout: New Vegas", DeployKind::Gamebryo)
+            .unwrap();
+
+        game.deploy_kind().unwrap();
     }
 
     #[test]

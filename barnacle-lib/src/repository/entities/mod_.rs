@@ -7,7 +7,7 @@ use tracing::debug;
 use crate::repository::{
     CoreConfigHandle,
     db::{DbHandle, models::GameModel},
-    entities::{ElementId, Result, game::Game},
+    entities::{ElementId, Result, game::Game, get_field, set_field},
 };
 
 /// Represents a mod entity in the Barnacle system.
@@ -78,35 +78,14 @@ impl Mod {
         T: TryFrom<DbValue>,
         T::Error: Debug,
     {
-        let db_id = self.id.db_id(&self.db)?;
-        let value = self
-            .db
-            .read()
-            .exec(QueryBuilder::select().values(field).ids(db_id).query())?
-            .elements
-            .pop()
-            .expect("successful queries should not be empty")
-            .values
-            .pop()
-            .expect("successful queries should not be empty")
-            .value;
-
-        Ok(T::try_from(value).expect("conversion from a `DbValue` must succeed"))
+        get_field(&self.db, self.id, field)
     }
 
     pub(crate) fn set_field<T>(&mut self, field: &str, value: T) -> Result<()>
     where
         T: Into<DbValue>,
     {
-        let db_id = self.id.db_id(&self.db)?;
-        self.db.write().exec_mut(
-            QueryBuilder::insert()
-                .values([[(field, value).into()]])
-                .ids(db_id)
-                .query(),
-        )?;
-
-        Ok(())
+        set_field(&mut self.db, self.id, field, value)
     }
 }
 
@@ -120,5 +99,17 @@ mod test {
 
         let mut game = repo.add_game("Morrowind", DeployKind::OpenMW).unwrap();
         game.add_mod("Test", None).unwrap();
+    }
+
+    #[test]
+    fn test_name() {
+        let mut repo = Repository::mock();
+
+        repo.add_game("Fallout: New Vegas", DeployKind::Gamebryo)
+            .unwrap()
+            .add_mod("Test", None)
+            .unwrap()
+            .name()
+            .unwrap();
     }
 }
