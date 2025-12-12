@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 
-use agdb::{DbValue, QueryBuilder};
+use agdb::DbValue;
 
 use crate::repository::{
     db::DbHandle,
@@ -88,5 +88,27 @@ mod test {
         profile.add_mod_entry(mod_).unwrap();
 
         assert_eq!(profile.mod_entries().unwrap().len(), 1);
+    }
+
+    #[test]
+    fn test_name() {
+        let mut repo = Repository::mock();
+
+        let mut game = repo.add_game("Morrowind", DeployKind::OpenMW).unwrap();
+        let mut profile = game.add_profile("Test").unwrap();
+        let mod_ = game.add_mod("Super Duper Mod", None).unwrap();
+
+        profile.add_mod_entry(mod_).unwrap().name().unwrap();
+    }
+
+    #[test]
+    fn test_enabled() {
+        let mut repo = Repository::mock();
+
+        let mut game = repo.add_game("Morrowind", DeployKind::OpenMW).unwrap();
+        let mut profile = game.add_profile("Test").unwrap();
+        let mod_ = game.add_mod("Super Duper Mod", None).unwrap();
+
+        profile.add_mod_entry(mod_).unwrap().enabled().unwrap();
     }
 }

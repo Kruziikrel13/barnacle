@@ -127,7 +127,7 @@ impl Profile {
     // Operations
 
     /// Add a new [`ModEntry`] to a [`Profile`] that points to the [`Mod`] given by ID.
-    pub fn add_mod_entry(&mut self, mod_: Mod) -> Result<()> {
+    pub fn add_mod_entry(&mut self, mod_: Mod) -> Result<ModEntry> {
         let db_id = self.id.db_id(&self.db)?;
         let mod_db_id = mod_.id.db_id(&self.db)?;
 
@@ -136,52 +136,57 @@ impl Profile {
             .last()
             .map(|e| e.entry_id.db_id(&self.db).unwrap());
 
-        self.db.write().transaction_mut(|t| -> Result<()> {
-            let mod_entry = ModEntryModel::default();
-            let mod_entry_id = t
-                .exec_mut(QueryBuilder::insert().element(&mod_entry).query())?
-                .elements
-                .first()
-                .expect("A successful query should not be empty")
-                .id;
+        let entry_element_id = ElementId::create(&self.db, |uid| {
+            let model = ModEntryModel::new(uid);
+            self.db.write().transaction_mut(|t| -> Result<DbId> {
+                let mod_entry_db_id = t
+                    .exec_mut(QueryBuilder::insert().element(&model).query())?
+                    .elements
+                    .first()
+                    .expect("A successful query should not be empty")
+                    .id;
 
-            match maybe_last_entry_db_id {
-                Some(last_entry_id) => {
-                    // Connect last entry in list to new entry
-                    t.exec_mut(
-                        QueryBuilder::insert()
-                            .edges()
-                            .from(last_entry_id)
-                            .to(mod_entry_id)
-                            .query(),
-                    )?;
+                match maybe_last_entry_db_id {
+                    Some(last_entry_db_id) => {
+                        // Connect last entry in list to new entry
+                        t.exec_mut(
+                            QueryBuilder::insert()
+                                .edges()
+                                .from(last_entry_db_id)
+                                .to(mod_entry_db_id)
+                                .query(),
+                        )?;
+                    }
+                    None => {
+                        // Connect profile node to new entry (first entry in the list)
+                        t.exec_mut(
+                            QueryBuilder::insert()
+                                .edges()
+                                .from(db_id)
+                                .to(mod_entry_db_id)
+                                .query(),
+                        )?;
+                    }
                 }
-                None => {
-                    // Connect profile node to new entry (first entry in the list)
-                    t.exec_mut(
-                        QueryBuilder::insert()
-                            .edges()
-                            .from(db_id)
-                            .to(mod_entry_id)
-                            .query(),
-                    )?;
-                }
-            }
 
-            // Connect new entry to target mod
-            t.exec_mut(
-                QueryBuilder::insert()
-                    .edges()
-                    .from(mod_entry_id)
-                    .to(mod_db_id)
-                    .query(),
-            )?;
+                // Connect new entry to target mod
+                t.exec_mut(
+                    QueryBuilder::insert()
+                        .edges()
+                        .from(mod_entry_db_id)
+                        .to(mod_db_id)
+                        .query(),
+                )?;
 
-            // TODO: Return ModEntry
-            Ok(())
+                Ok(mod_entry_db_id)
+            })
         })?;
 
-        Ok(())
+        ModEntry::load(
+            entry_element_id,
+            ElementId::load(&self.db, mod_db_id)?,
+            self.db.clone(),
+        )
     }
 
     pub fn mod_entries(&self) -> Result<Vec<ModEntry>> {

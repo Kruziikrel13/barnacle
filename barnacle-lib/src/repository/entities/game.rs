@@ -226,29 +226,26 @@ impl Game {
 
         let element_id = ElementId::create(&db, |uid| {
             let model = GameModel::new(uid, name, deploy_kind);
-            Ok(db
-                .write()
-                .transaction_mut(|t| -> Result<DbId> {
-                    let game_id = t
-                        .exec_mut(QueryBuilder::insert().element(model).query())
-                        .unwrap()
-                        .elements
-                        .first()
-                        .unwrap()
-                        .id;
+            db.write().transaction_mut(|t| -> Result<DbId> {
+                let game_id = t
+                    .exec_mut(QueryBuilder::insert().element(model).query())
+                    .unwrap()
+                    .elements
+                    .first()
+                    .unwrap()
+                    .id;
 
-                    t.exec_mut(
-                        QueryBuilder::insert()
-                            .edges()
-                            .from("games")
-                            .to(game_id)
-                            .query(),
-                    )
-                    .unwrap();
+                t.exec_mut(
+                    QueryBuilder::insert()
+                        .edges()
+                        .from("games")
+                        .to(game_id)
+                        .query(),
+                )
+                .unwrap();
 
-                    Ok(game_id)
-                })
-                .unwrap())
+                Ok(game_id)
+            })
         })?;
 
         let game = Game::load(element_id, db.clone(), cfg.clone())?;
