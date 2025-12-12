@@ -4,7 +4,7 @@ use agdb::DbValue;
 
 use crate::repository::{
     db::DbHandle,
-    entities::{ElementId, Result, get_field, set_field},
+    entities::{EntityId, Result, get_field, set_field},
 };
 
 /// Represents a mod entry in the Barnacle system.
@@ -14,14 +14,14 @@ use crate::repository::{
 #[derive(Debug, Clone)]
 pub struct ModEntry {
     /// The ID of the ModEntryModel
-    pub(crate) entry_id: ElementId,
+    pub(crate) entry_id: EntityId,
     /// The ID of the ModModel the entry points to
-    pub(crate) mod_id: ElementId,
+    pub(crate) mod_id: EntityId,
     pub(crate) db: DbHandle,
 }
 
 impl ModEntry {
-    pub(crate) fn load(entry_id: ElementId, mod_id: ElementId, db: DbHandle) -> Result<Self> {
+    pub(crate) fn load(entry_id: EntityId, mod_id: EntityId, db: DbHandle) -> Result<Self> {
         Ok(Self {
             entry_id,
             mod_id,
@@ -57,7 +57,7 @@ impl ModEntry {
         self.get_field(self.entry_id, field)
     }
 
-    fn get_field<T>(&self, id: ElementId, field: &str) -> Result<T>
+    fn get_field<T>(&self, id: EntityId, field: &str) -> Result<T>
     where
         T: TryFrom<DbValue>,
         T::Error: Debug,
@@ -65,7 +65,7 @@ impl ModEntry {
         get_field(&self.db, id, field)
     }
 
-    pub(crate) fn set_field<T>(&mut self, id: ElementId, field: &str, value: T) -> Result<()>
+    pub(crate) fn set_field<T>(&mut self, id: EntityId, field: &str, value: T) -> Result<()>
     where
         T: Into<DbValue>,
     {

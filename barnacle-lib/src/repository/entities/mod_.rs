@@ -7,7 +7,7 @@ use tracing::debug;
 use crate::repository::{
     CoreConfigHandle,
     db::{DbHandle, models::GameModel},
-    entities::{ElementId, Result, game::Game, get_field, set_field},
+    entities::{EntityId, Result, game::Game, get_field, set_field},
 };
 
 /// Represents a mod entity in the Barnacle system.
@@ -16,13 +16,13 @@ use crate::repository::{
 /// Always reflects the current database state.
 #[derive(Debug, Clone)]
 pub struct Mod {
-    pub(crate) id: ElementId,
+    pub(crate) id: EntityId,
     pub(crate) db: DbHandle,
     pub(crate) cfg: CoreConfigHandle,
 }
 
 impl Mod {
-    pub(crate) fn load(id: ElementId, db: DbHandle, cfg: CoreConfigHandle) -> Result<Self> {
+    pub(crate) fn load(id: EntityId, db: DbHandle, cfg: CoreConfigHandle) -> Result<Self> {
         Ok(Self { id, db, cfg })
     }
 
@@ -53,7 +53,7 @@ impl Mod {
             .expect("A successful query should not be empty")
             .id;
 
-        let id = ElementId::load(&self.db, parent_game_id)?;
+        let id = EntityId::load(&self.db, parent_game_id)?;
         Game::load(id, self.db.clone(), self.cfg.clone())
     }
 

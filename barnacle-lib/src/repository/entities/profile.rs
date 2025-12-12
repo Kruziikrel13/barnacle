@@ -11,7 +11,7 @@ use crate::repository::{
         models::{GameModel, ModEntryModel, ModModel, ProfileModel},
     },
     entities::{
-        ElementId, Result, game::Game, get_field, mod_::Mod, mod_entry::ModEntry, set_field,
+        EntityId, Result, game::Game, get_field, mod_::Mod, mod_entry::ModEntry, set_field,
     },
 };
 
@@ -21,13 +21,13 @@ use crate::repository::{
 /// managing mod entries. Always reflects the current database state.
 #[derive(Debug, Clone)]
 pub struct Profile {
-    pub(crate) id: ElementId,
+    pub(crate) id: EntityId,
     pub(crate) db: DbHandle,
     pub(crate) cfg: CoreConfigHandle,
 }
 
 impl Profile {
-    pub(crate) fn load(id: ElementId, db: DbHandle, cfg: CoreConfigHandle) -> Result<Self> {
+    pub(crate) fn load(id: EntityId, db: DbHandle, cfg: CoreConfigHandle) -> Result<Self> {
         Ok(Self { id, db, cfg })
     }
 
@@ -99,7 +99,7 @@ impl Profile {
             .expect("A successful query should not be empty")
             .id;
 
-        Profile::load(ElementId::load(&db, db_id)?, db.clone(), cfg.clone())
+        Profile::load(EntityId::load(&db, db_id)?, db.clone(), cfg.clone())
     }
 
     /// Returns the parent [`Game`] of this [`Profile`]
@@ -120,7 +120,7 @@ impl Profile {
             .expect("A successful query should not be empty")
             .id;
 
-        let id = ElementId::load(&self.db, parent_game_id)?;
+        let id = EntityId::load(&self.db, parent_game_id)?;
         Game::load(id, self.db.clone(), self.cfg.clone())
     }
 
@@ -136,7 +136,7 @@ impl Profile {
             .last()
             .map(|e| e.entry_id.db_id(&self.db).unwrap());
 
-        let entry_element_id = ElementId::create(&self.db, |uid| {
+        let entry_element_id = EntityId::create(&self.db, |uid| {
             let model = ModEntryModel::new(uid);
             self.db.write().transaction_mut(|t| -> Result<DbId> {
                 let mod_entry_db_id = t
@@ -184,7 +184,7 @@ impl Profile {
 
         ModEntry::load(
             entry_element_id,
-            ElementId::load(&self.db, mod_db_id)?,
+            EntityId::load(&self.db, mod_db_id)?,
             self.db.clone(),
         )
     }
@@ -234,8 +234,8 @@ impl Profile {
             .zip(mod_ids)
             .map(|(entry_db_id, mod_db_id)| {
                 ModEntry::load(
-                    ElementId::load(&self.db, entry_db_id).unwrap(),
-                    ElementId::load(&self.db, mod_db_id).unwrap(),
+                    EntityId::load(&self.db, entry_db_id).unwrap(),
+                    EntityId::load(&self.db, mod_db_id).unwrap(),
                     self.db.clone(),
                 )
                 .unwrap()

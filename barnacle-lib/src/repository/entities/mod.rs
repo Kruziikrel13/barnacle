@@ -34,20 +34,20 @@ pub enum Error {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub(crate) struct ElementId {
+pub(crate) struct EntityId {
     db_id: DbId,
-    /// A unique idenifier that specifies a particular element
+    /// A unique idenifier that specifies a particular entity
     uid: Uid,
 }
 
-impl ElementId {
-    /// Creates a new [`ElementId`] for a freshly inserted element.
+impl EntityId {
+    /// Creates a new [`EntityId`] for a freshly inserted element.
     ///
-    /// Allocates a new UID for the element in the database and guarantees that the
-    /// resulting [`ElementId`] refers to a valid, unique element. The provided closure
+    /// Allocates a new UID for the entity in the database and guarantees that the
+    /// resulting [`EntityId`] refers to a valid, unique entity. The provided closure
     /// is called with the newly allocated UID and can be used to perform any initialization
-    /// logic for the element (e.g. linking edges). This is to prevent a caller clobbering an
-    /// existing element's UID by calling this function.
+    /// logic for the entity (e.g. linking edges). This is to prevent a caller clobbering an
+    /// existing entity's UID by calling this function.
     pub fn create<F>(db: &DbHandle, insert_element: F) -> Result<Self>
     where
         F: FnOnce(u64) -> Result<DbId>,
@@ -124,7 +124,7 @@ impl ElementId {
     }
 }
 
-fn get_field<T>(db: &DbHandle, id: ElementId, field: &str) -> Result<T>
+fn get_field<T>(db: &DbHandle, id: EntityId, field: &str) -> Result<T>
 where
     T: TryFrom<DbValue>,
     T::Error: Debug,
@@ -144,7 +144,7 @@ where
     Ok(T::try_from(value).expect("conversion from a `DbValue` must succeed"))
 }
 
-pub(crate) fn set_field<T>(db: &mut DbHandle, id: ElementId, field: &str, value: T) -> Result<()>
+pub(crate) fn set_field<T>(db: &mut DbHandle, id: EntityId, field: &str, value: T) -> Result<()>
 where
     T: Into<DbValue>,
 {

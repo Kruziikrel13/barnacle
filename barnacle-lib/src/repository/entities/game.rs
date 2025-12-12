@@ -17,7 +17,7 @@ use crate::{
             DbHandle,
             models::{DeployKind, GameModel, ModModel, ProfileModel},
         },
-        entities::{ElementId, Result, get_field, mod_::Mod, profile::Profile, set_field},
+        entities::{EntityId, Result, get_field, mod_::Mod, profile::Profile, set_field},
     },
 };
 
@@ -27,14 +27,14 @@ use crate::{
 /// managing profiles and mods. Always reflects the current database state.
 #[derive(Debug, Clone)]
 pub struct Game {
-    id: ElementId,
+    id: EntityId,
     db: DbHandle,
     cfg: CoreConfigHandle,
 }
 
 impl Game {
     /// Load some existing [`Game`] from the database
-    pub(crate) fn load(id: ElementId, db: DbHandle, cfg: CoreConfigHandle) -> Result<Self> {
+    pub(crate) fn load(id: EntityId, db: DbHandle, cfg: CoreConfigHandle) -> Result<Self> {
         Ok(Self { id, db, cfg })
     }
 
@@ -99,7 +99,7 @@ impl Game {
     }
 
     pub fn add_profile(&mut self, name: &str) -> Result<Profile> {
-        let element_id = ElementId::create(&self.db, |uid| {
+        let element_id = EntityId::create(&self.db, |uid| {
             let model = ProfileModel::new(uid, name);
             if self
                 .profiles()?
@@ -162,7 +162,7 @@ impl Game {
             .elements
             .iter()
             .map(|e| {
-                let profile_db_id = ElementId::load(&self.db, e.id).unwrap();
+                let profile_db_id = EntityId::load(&self.db, e.id).unwrap();
                 Profile::load(profile_db_id, self.db.clone(), self.cfg.clone()).unwrap()
             })
             .collect())
@@ -176,7 +176,7 @@ impl Game {
             change_dir_permissions(&self.dir()?, Permissions::ReadOnly);
         }
 
-        let element_id = ElementId::create(&self.db, |uid| {
+        let element_id = EntityId::create(&self.db, |uid| {
             let model = ModModel::new(uid, name);
             let game_id = self.id.db_id(&self.db)?;
             self.db.write().transaction_mut(|t| -> Result<DbId> {
@@ -224,7 +224,7 @@ impl Game {
             panic!("UniqueViolation");
         }
 
-        let element_id = ElementId::create(&db, |uid| {
+        let element_id = EntityId::create(&db, |uid| {
             let model = GameModel::new(uid, name, deploy_kind);
             db.write().transaction_mut(|t| -> Result<DbId> {
                 let game_id = t
@@ -274,7 +274,7 @@ impl Game {
             .elements
             .iter()
             .map(|e| {
-                Game::load(ElementId::load(&db, e.id).unwrap(), db.clone(), cfg.clone()).unwrap()
+                Game::load(EntityId::load(&db, e.id).unwrap(), db.clone(), cfg.clone()).unwrap()
             })
             .collect())
     }

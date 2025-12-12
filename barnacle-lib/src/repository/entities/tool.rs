@@ -5,7 +5,7 @@ use agdb::{DbValue, QueryBuilder};
 use crate::repository::{
     config::CoreConfigHandle,
     db::DbHandle,
-    entities::{ElementId, Result, get_field, set_field},
+    entities::{EntityId, Result, get_field, set_field},
 };
 
 /// Represents a tool entity in the Barnacle system.
@@ -14,13 +14,13 @@ use crate::repository::{
 /// Always reflects the current database state.
 #[derive(Debug, Clone)]
 pub struct Tool {
-    id: ElementId,
+    id: EntityId,
     db: DbHandle,
     cfg: CoreConfigHandle,
 }
 
 impl Tool {
-    pub(crate) fn from_id(id: ElementId, db: DbHandle, cfg: CoreConfigHandle) -> Result<Self> {
+    pub(crate) fn from_id(id: EntityId, db: DbHandle, cfg: CoreConfigHandle) -> Result<Self> {
         Ok(Self { id, db, cfg })
     }
 
