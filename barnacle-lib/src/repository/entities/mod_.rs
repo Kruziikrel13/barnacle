@@ -109,3 +109,16 @@ impl Mod {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod test {
+    use crate::{Repository, repository::DeployKind};
+
+    #[test]
+    fn test_add() {
+        let mut repo = Repository::mock();
+
+        let mut game = repo.add_game("Morrowind", DeployKind::OpenMW).unwrap();
+        game.add_mod("Test", None).unwrap();
+    }
+}

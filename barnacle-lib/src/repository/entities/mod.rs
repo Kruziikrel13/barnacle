@@ -6,7 +6,7 @@
 
 use std::fmt::Debug;
 
-use agdb::{DbId, QueryBuilder};
+use agdb::{DbId, DbValue, QueryBuilder};
 use thiserror::Error;
 
 use crate::repository::db::{DbHandle, Uid};
@@ -33,7 +33,7 @@ pub enum Error {
     StaleEntityId,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub(crate) struct ElementId {
     db_id: DbId,
     /// A unique idenifier that specifies a particular element
@@ -122,4 +122,39 @@ impl ElementId {
             Ok(self.db_id)
         }
     }
+}
+
+fn get_field<T>(db: &DbHandle, id: ElementId, field: &str) -> Result<T>
+where
+    T: TryFrom<DbValue>,
+    T::Error: Debug,
+{
+    let db_id = id.db_id(db)?;
+    let value = db
+        .read()
+        .exec(QueryBuilder::select().values(field).ids(db_id).query())?
+        .elements
+        .pop()
+        .expect("successful queries should not be empty")
+        .values
+        .pop()
+        .expect("successful queries should not be empty")
+        .value;
+
+    Ok(T::try_from(value).expect("conversion from a `DbValue` must succeed"))
+}
+
+pub(crate) fn set_field<T>(db: &mut DbHandle, id: ElementId, field: &str, value: T) -> Result<()>
+where
+    T: Into<DbValue>,
+{
+    let db_id = id.db_id(db)?;
+    db.write().exec_mut(
+        QueryBuilder::insert()
+            .values([[(field, value).into()]])
+            .ids(db_id)
+            .query(),
+    )?;
+
+    Ok(())
 }

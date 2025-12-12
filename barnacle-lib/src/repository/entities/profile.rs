@@ -10,7 +10,9 @@ use crate::repository::{
         DbHandle,
         models::{GameModel, ModEntryModel, ModModel, ProfileModel},
     },
-    entities::{ElementId, Result, game::Game, mod_::Mod, mod_entry::ModEntry},
+    entities::{
+        ElementId, Result, game::Game, get_field, mod_::Mod, mod_entry::ModEntry, set_field,
+    },
 };
 
 /// Represents a profile entity in the Barnacle system.
@@ -126,6 +128,9 @@ impl Profile {
 
     /// Add a new [`ModEntry`] to a [`Profile`] that points to the [`Mod`] given by ID.
     pub fn add_mod_entry(&mut self, mod_: Mod) -> Result<()> {
+        let db_id = self.id.db_id(&self.db)?;
+        let mod_db_id = mod_.id.db_id(&self.db)?;
+
         let maybe_last_entry_db_id = self
             .mod_entries()?
             .last()
@@ -156,7 +161,7 @@ impl Profile {
                     t.exec_mut(
                         QueryBuilder::insert()
                             .edges()
-                            .from(self.id.db_id(&self.db)?)
+                            .from(db_id)
                             .to(mod_entry_id)
                             .query(),
                     )?;
@@ -164,7 +169,6 @@ impl Profile {
             }
 
             // Connect new entry to target mod
-            let mod_db_id = mod_.id.db_id(&self.db)?;
             t.exec_mut(
                 QueryBuilder::insert()
                     .edges()
@@ -254,39 +258,14 @@ impl Profile {
         T: TryFrom<DbValue>,
         T::Error: Debug,
     {
-        let value = self
-            .db
-            .read()
-            .exec(
-                QueryBuilder::select()
-                    .values(field)
-                    .ids(self.id.db_id(&self.db)?)
-                    .query(),
-            )?
-            .elements
-            .pop()
-            .expect("successful queries should not be empty")
-            .values
-            .pop()
-            .expect("successful queries should not be empty")
-            .value;
-
-        Ok(T::try_from(value).expect("conversion from a `DbValue` must succeed"))
+        get_field(&self.db, self.id, field)
     }
 
     pub(crate) fn set_field<T>(&mut self, field: &str, value: T) -> Result<()>
     where
         T: Into<DbValue>,
     {
-        let element_id = self.id.db_id(&self.db)?;
-        self.db.write().exec_mut(
-            QueryBuilder::insert()
-                .values([[(field, value).into()]])
-                .ids(element_id)
-                .query(),
-        )?;
-
-        Ok(())
+        set_field(&mut self.db, self.id, field, value)
     }
 }
 

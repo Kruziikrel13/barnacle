@@ -4,7 +4,7 @@ use agdb::{DbValue, QueryBuilder};
 
 use crate::repository::{
     db::DbHandle,
-    entities::{ElementId, Result},
+    entities::{ElementId, Result, get_field, set_field},
 };
 
 /// Represents a mod entry in the Barnacle system.
@@ -46,7 +46,7 @@ impl ModEntry {
         T: TryFrom<DbValue>,
         T::Error: Debug,
     {
-        self.get_field(&self.mod_id, field)
+        self.get_field(self.mod_id, field)
     }
 
     fn get_entry_field<T>(&self, field: &str) -> Result<T>
@@ -54,46 +54,39 @@ impl ModEntry {
         T: TryFrom<DbValue>,
         T::Error: Debug,
     {
-        self.get_field(&self.entry_id, field)
+        self.get_field(self.entry_id, field)
     }
 
-    fn get_field<T>(&self, id: &ElementId, field: &str) -> Result<T>
+    fn get_field<T>(&self, id: ElementId, field: &str) -> Result<T>
     where
         T: TryFrom<DbValue>,
         T::Error: Debug,
     {
-        let value = self
-            .db
-            .read()
-            .exec(
-                QueryBuilder::select()
-                    .values(field)
-                    .ids(id.db_id(&self.db)?)
-                    .query(),
-            )?
-            .elements
-            .pop()
-            .expect("successful queries should not be empty")
-            .values
-            .pop()
-            .expect("successful queries should not be empty")
-            .value;
-
-        Ok(T::try_from(value).expect("conversion from a `DbValue` must succeed"))
+        get_field(&self.db, id, field)
     }
 
-    pub(crate) fn set_field<T>(&mut self, id: &ElementId, field: &str, value: T) -> Result<()>
+    pub(crate) fn set_field<T>(&mut self, id: ElementId, field: &str, value: T) -> Result<()>
     where
         T: Into<DbValue>,
     {
-        let element_id = id.db_id(&self.db)?;
-        self.db.write().exec_mut(
-            QueryBuilder::insert()
-                .values([[(field, value).into()]])
-                .ids(element_id)
-                .query(),
-        )?;
+        set_field(&mut self.db, id, field, value)
+    }
+}
 
-        Ok(())
+#[cfg(test)]
+mod test {
+    use crate::{Repository, repository::DeployKind};
+
+    #[test]
+    fn test_add() {
+        let mut repo = Repository::mock();
+
+        let mut game = repo.add_game("Morrowind", DeployKind::OpenMW).unwrap();
+        let mut profile = game.add_profile("Test").unwrap();
+        let mod_ = game.add_mod("Super Duper Mod", None).unwrap();
+
+        profile.add_mod_entry(mod_).unwrap();
+
+        assert_eq!(profile.mod_entries().unwrap().len(), 1);
     }
 }
