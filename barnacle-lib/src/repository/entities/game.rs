@@ -99,40 +99,40 @@ impl Game {
     }
 
     pub fn add_profile(&mut self, name: &str) -> Result<Profile> {
-        let uid = next_uid(&mut self.db)?;
-        let model = ProfileModel::new(uid, name);
+        let element_id = ElementId::create(&self.db, |uid| {
+            let model = ProfileModel::new(uid, name);
+            if self
+                .profiles()?
+                .iter()
+                .any(|p: &Profile| p.name().unwrap() == model.name)
+            {
+                // return Err(Error::UniqueViolation(UniqueConstraint::ProfileName));
+                panic!("Unique violation")
+            }
 
-        if self
-            .profiles()?
-            .iter()
-            .any(|p: &Profile| p.name().unwrap() == model.name)
-        {
-            // return Err(Error::UniqueViolation(UniqueConstraint::ProfileName));
-            panic!("Unique violation")
-        }
-
-        let id = self.db.write().transaction_mut(|t| -> Result<DbId> {
-            let profile_id = t
-                .exec_mut(QueryBuilder::insert().element(model).query())?
-                .elements
-                .first()
-                .expect("A successful query should not be empty")
-                .id;
-
-            // Link Profile to the specified Game node and root "profiles" node
             let game_id = self.id.db_id(&self.db)?;
-            t.exec_mut(
-                QueryBuilder::insert()
-                    .edges()
-                    .from([QueryId::from("profiles"), QueryId::from(game_id)])
-                    .to(profile_id)
-                    .query(),
-            )?;
+            Ok(self.db.write().transaction_mut(|t| -> Result<DbId> {
+                let profile_id = t
+                    .exec_mut(QueryBuilder::insert().element(model).query())?
+                    .elements
+                    .first()
+                    .expect("A successful query should not be empty")
+                    .id;
 
-            Ok(profile_id)
+                // Link Profile to the specified Game node and root "profiles" node
+                t.exec_mut(
+                    QueryBuilder::insert()
+                        .edges()
+                        .from([QueryId::from("profiles"), QueryId::from(game_id)])
+                        .to(profile_id)
+                        .query(),
+                )?;
+
+                Ok(profile_id)
+            })?)
         })?;
 
-        let profile = Profile::from_id(id, self.db.clone(), self.cfg.clone())?;
+        let profile = Profile::load(element_id, self.db.clone(), self.cfg.clone())?;
 
         fs::create_dir_all(profile.dir()?).unwrap();
 
@@ -146,7 +146,7 @@ impl Game {
     }
 
     pub fn profiles(&self) -> Result<Vec<Profile>> {
-        let id = self.id.db_id(&self.db)?;
+        let db_id = self.id.db_id(&self.db)?;
         Ok(self
             .db
             .read()
@@ -154,16 +154,17 @@ impl Game {
                 QueryBuilder::select()
                     .elements::<ProfileModel>()
                     .search()
-                    .from(id)
+                    .from(db_id)
                     .where_()
-                    // .node()
-                    // .and()
                     .neighbor()
                     .query(),
             )?
             .elements
             .iter()
-            .map(|e| Profile::from_id(e.id, self.db.clone(), self.cfg.clone()).unwrap())
+            .map(|e| {
+                let profile_db_id = ElementId::load(&self.db, e.id).unwrap();
+                Profile::load(profile_db_id, self.db.clone(), self.cfg.clone()).unwrap()
+            })
             .collect())
     }
 

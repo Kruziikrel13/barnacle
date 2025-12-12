@@ -7,12 +7,10 @@ use tracing::debug;
 use crate::repository::{
     CoreConfigHandle,
     db::{
-        DbHandle, Uid,
+        DbHandle,
         models::{GameModel, ModEntryModel, ModModel, ProfileModel},
     },
-    entities::{
-        ElementId, Error, Result, game::Game, mod_::Mod, mod_entry::ModEntry, set_field, uid,
-    },
+    entities::{ElementId, Result, game::Game, mod_::Mod, mod_entry::ModEntry},
 };
 
 /// Represents a profile entity in the Barnacle system.
@@ -21,20 +19,14 @@ use crate::repository::{
 /// managing mod entries. Always reflects the current database state.
 #[derive(Debug, Clone)]
 pub struct Profile {
-    pub(crate) db_id: DbId,
-    pub(crate) uid: Uid,
+    pub(crate) id: ElementId,
     pub(crate) db: DbHandle,
     pub(crate) cfg: CoreConfigHandle,
 }
 
 impl Profile {
-    pub(crate) fn from_id(db_id: DbId, db: DbHandle, cfg: CoreConfigHandle) -> Result<Self> {
-        Ok(Self {
-            db_id,
-            uid: uid(&db, db_id)?,
-            db,
-            cfg,
-        })
+    pub(crate) fn load(id: ElementId, db: DbHandle, cfg: CoreConfigHandle) -> Result<Self> {
+        Ok(Self { id, db, cfg })
     }
 
     // Fields
@@ -50,7 +42,7 @@ impl Profile {
 
         let old_dir = self.dir()?;
 
-        set_field(&mut self.db, self.db_id, "name", new_name)?;
+        self.set_field("name", new_name)?;
 
         let new_dir = self.dir()?;
         fs::rename(old_dir, new_dir).unwrap();
@@ -80,7 +72,7 @@ impl Profile {
                 QueryBuilder::insert()
                     .edges()
                     .from("current_profile")
-                    .to(profile.db_id)
+                    .to(profile.id.db_id(&db)?)
                     .query(),
             )?;
 
@@ -89,7 +81,7 @@ impl Profile {
     }
 
     pub(crate) fn current(db: DbHandle, cfg: CoreConfigHandle) -> Result<Profile> {
-        let id = db
+        let db_id = db
             .read()
             .exec(
                 QueryBuilder::select()
@@ -105,7 +97,7 @@ impl Profile {
             .expect("A successful query should not be empty")
             .id;
 
-        Profile::from_id(id, db.clone(), cfg.clone())
+        Profile::load(ElementId::load(&db, db_id)?, db.clone(), cfg.clone())
     }
 
     /// Returns the parent [`Game`] of this [`Profile`]
@@ -118,7 +110,7 @@ impl Profile {
                     .elements::<GameModel>()
                     .search()
                     .from("games")
-                    .to(self.db_id)
+                    .to(self.id.db_id(&self.db)?)
                     .query(),
             )?
             .elements
@@ -161,7 +153,7 @@ impl Profile {
                     t.exec_mut(
                         QueryBuilder::insert()
                             .edges()
-                            .from(self.db_id)
+                            .from(self.id.db_id(&self.db)?)
                             .to(mod_entry_id)
                             .query(),
                     )?;
@@ -192,7 +184,7 @@ impl Profile {
                 QueryBuilder::select()
                     .elements::<ModEntryModel>()
                     .search()
-                    .from(self.db_id)
+                    .from(self.id.db_id(&self.db)?)
                     .where_()
                     .node()
                     .and()
@@ -211,7 +203,7 @@ impl Profile {
                 QueryBuilder::select()
                     .elements::<ModModel>()
                     .search()
-                    .from(self.db_id)
+                    .from(self.id.db_id(&self.db)?)
                     .where_()
                     .node()
                     .and()
@@ -237,7 +229,7 @@ impl Profile {
 
         self.db
             .write()
-            .exec_mut(QueryBuilder::remove().ids(self.db_id).query())?;
+            .exec_mut(QueryBuilder::remove().ids(self.id.db_id(&self.db)?).query())?;
 
         fs::remove_dir_all(dir).unwrap();
 
@@ -251,49 +243,51 @@ impl Profile {
         T: TryFrom<DbValue>,
         T::Error: Debug,
     {
-        let mut values = self
+        let value = self
             .db
             .read()
             .exec(
                 QueryBuilder::select()
-                    .values([field, "uid"])
-                    .ids(self.db_id)
+                    .values(field)
+                    .ids(self.id.db_id(&self.db)?)
                     .query(),
             )?
             .elements
             .pop()
             .expect("successful queries should not be empty")
-            .values;
-
-        let uid = values
-            .pop()
-            .expect("successful queries should not be empty")
-            .value
-            .to_u64()?;
-
-        if uid != self.uid {
-            return Err(Error::StaleEntityId);
-        }
-
-        let value = values
+            .values
             .pop()
             .expect("successful queries should not be empty")
             .value;
 
-        Ok(T::try_from(value)
-        .expect("Conversion from a `DbValue` must succeed. Perhaps the wrong type was expected from this field."))
+        Ok(T::try_from(value).expect("conversion from a `DbValue` must succeed"))
+    }
+
+    pub(crate) fn set_field<T>(&mut self, field: &str, value: T) -> Result<()>
+    where
+        T: Into<DbValue>,
+    {
+        let element_id = self.id.db_id(&self.db)?;
+        self.db.write().exec_mut(
+            QueryBuilder::insert()
+                .values([[(field, value).into()]])
+                .ids(element_id)
+                .query(),
+        )?;
+
+        Ok(())
     }
 }
 
-// #[cfg(test)]
-// mod test {
-//     use crate::{Repository, repository::DeployKind};
-//
-//     #[test]
-//     fn test_add() {
-//         let mut repo = Repository::mock();
-//
-//         let mut game = repo.add_game("Morrowind", DeployKind::OpenMW).unwrap();
-//         game.add_profile("Test").unwrap();
-//     }
-// }
+#[cfg(test)]
+mod test {
+    use crate::{Repository, repository::DeployKind};
+
+    #[test]
+    fn test_add() {
+        let mut repo = Repository::mock();
+
+        let mut game = repo.add_game("Morrowind", DeployKind::OpenMW).unwrap();
+        game.add_profile("Test").unwrap();
+    }
+}

@@ -123,20 +123,6 @@ impl ElementId {
     }
 }
 
-pub(crate) fn set_field<T>(db: &mut DbHandle, id: DbId, field: &str, value: T) -> Result<()>
-where
-    T: Into<DbValue>,
-{
-    db.write().exec_mut(
-        QueryBuilder::insert()
-            .values([[(field, value).into()]])
-            .ids(id)
-            .query(),
-    )?;
-
-    Ok(())
-}
-
 /// Get a [`Uid`] to be used with a newly inserted element.
 pub(crate) fn next_uid(db: &mut DbHandle) -> Result<Uid> {
     db.write().transaction_mut(|t| {
