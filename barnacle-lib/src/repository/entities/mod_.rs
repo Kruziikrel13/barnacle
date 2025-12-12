@@ -1,13 +1,13 @@
 use std::{fmt::Debug, fs, path::PathBuf};
 
-use agdb::{DbId, DbValue, QueryBuilder};
+use agdb::{DbValue, QueryBuilder};
 use heck::ToSnakeCase;
 use tracing::debug;
 
 use crate::repository::{
     CoreConfigHandle,
-    db::{DbHandle, Uid, models::GameModel},
-    entities::{ElementId, Error, Result, game::Game, uid},
+    db::{DbHandle, models::GameModel},
+    entities::{ElementId, Result, game::Game},
 };
 
 /// Represents a mod entity in the Barnacle system.
@@ -16,20 +16,14 @@ use crate::repository::{
 /// Always reflects the current database state.
 #[derive(Debug, Clone)]
 pub struct Mod {
-    pub(crate) db_id: DbId,
-    pub(crate) uid: Uid,
+    pub(crate) id: ElementId,
     pub(crate) db: DbHandle,
     pub(crate) cfg: CoreConfigHandle,
 }
 
 impl Mod {
-    pub(crate) fn from_id(db_id: DbId, db: DbHandle, cfg: CoreConfigHandle) -> Result<Self> {
-        Ok(Self {
-            db_id,
-            uid: uid(&db, db_id)?,
-            db,
-            cfg,
-        })
+    pub(crate) fn load(id: ElementId, db: DbHandle, cfg: CoreConfigHandle) -> Result<Self> {
+        Ok(Self { id, db, cfg })
     }
 
     pub fn name(&self) -> Result<String> {
@@ -42,6 +36,7 @@ impl Mod {
 
     /// Returns the parent [`Game`] of this [`Mod`]
     pub fn parent(&self) -> Result<Game> {
+        let db_id = self.id.db_id(&self.db)?;
         let parent_game_id = self
             .db
             .read()
@@ -50,7 +45,7 @@ impl Mod {
                     .elements::<GameModel>()
                     .search()
                     .from("games")
-                    .to(self.db_id)
+                    .to(db_id)
                     .query(),
             )?
             .elements
@@ -66,9 +61,10 @@ impl Mod {
         let name = self.name()?;
         let dir = self.dir()?;
 
+        let db_id = self.id.db_id(&self.db)?;
         self.db
             .write()
-            .exec_mut(QueryBuilder::remove().ids(self.db_id).query())?;
+            .exec_mut(QueryBuilder::remove().ids(db_id).query())?;
 
         fs::remove_dir_all(dir).unwrap();
 
@@ -82,36 +78,34 @@ impl Mod {
         T: TryFrom<DbValue>,
         T::Error: Debug,
     {
-        let mut values = self
+        let db_id = self.id.db_id(&self.db)?;
+        let value = self
             .db
             .read()
-            .exec(
-                QueryBuilder::select()
-                    .values([field, "uid"])
-                    .ids(self.db_id)
-                    .query(),
-            )?
+            .exec(QueryBuilder::select().values(field).ids(db_id).query())?
             .elements
             .pop()
             .expect("successful queries should not be empty")
-            .values;
-
-        let uid = values
-            .pop()
-            .expect("successful queries should not be empty")
-            .value
-            .to_u64()?;
-
-        if uid != self.uid {
-            return Err(Error::StaleEntityId);
-        }
-
-        let value = values
+            .values
             .pop()
             .expect("successful queries should not be empty")
             .value;
 
-        Ok(T::try_from(value)
-        .expect("Conversion from a `DbValue` must succeed. Perhaps the wrong type was expected from this field."))
+        Ok(T::try_from(value).expect("conversion from a `DbValue` must succeed"))
+    }
+
+    pub(crate) fn set_field<T>(&mut self, field: &str, value: T) -> Result<()>
+    where
+        T: Into<DbValue>,
+    {
+        let db_id = self.id.db_id(&self.db)?;
+        self.db.write().exec_mut(
+            QueryBuilder::insert()
+                .values([[(field, value).into()]])
+                .ids(db_id)
+                .query(),
+        )?;
+
+        Ok(())
     }
 }

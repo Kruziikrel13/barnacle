@@ -17,7 +17,7 @@ use crate::{
             DbHandle,
             models::{DeployKind, GameModel, ModModel, ProfileModel},
         },
-        entities::{ElementId, Result, mod_::Mod, next_uid, profile::Profile},
+        entities::{ElementId, Result, mod_::Mod, profile::Profile},
     },
 };
 
@@ -169,9 +169,6 @@ impl Game {
     }
 
     pub fn add_mod(&mut self, name: &str, path: Option<&Path>) -> Result<Mod> {
-        let uid = next_uid(&mut self.db)?;
-        let new_mod = ModModel::new(uid, name);
-
         // TODO: Only attempt to open the archive if the input_path is an archive
         if let Some(path) = path {
             let archive = File::open(path).unwrap();
@@ -179,28 +176,31 @@ impl Game {
             change_dir_permissions(&self.dir()?, Permissions::ReadOnly);
         }
 
-        let id = self.db.write().transaction_mut(|t| -> Result<DbId> {
-            let mod_id = t
-                .exec_mut(QueryBuilder::insert().element(new_mod).query())?
-                .elements
-                .first()
-                .expect("A successful query should not be empty")
-                .id;
+        let element_id = ElementId::create(&self.db, |uid| {
+            let model = ModModel::new(uid, name);
+            self.db.write().transaction_mut(|t| -> Result<DbId> {
+                let mod_id = t
+                    .exec_mut(QueryBuilder::insert().element(model).query())?
+                    .elements
+                    .first()
+                    .expect("A successful query should not be empty")
+                    .id;
 
-            // Link Profile to the specified Game node and root "profiles" node
-            let game_id = self.id.db_id(&self.db)?;
-            t.exec_mut(
-                QueryBuilder::insert()
-                    .edges()
-                    .from([QueryId::from("profiles"), QueryId::from(game_id)])
-                    .to(mod_id)
-                    .query(),
-            )?;
+                // Link Profile to the specified Game node and root "profiles" node
+                let game_id = self.id.db_id(&self.db)?;
+                t.exec_mut(
+                    QueryBuilder::insert()
+                        .edges()
+                        .from([QueryId::from("profiles"), QueryId::from(game_id)])
+                        .to(mod_id)
+                        .query(),
+                )?;
 
-            Ok(mod_id)
+                Ok(mod_id)
+            })
         })?;
 
-        Mod::from_id(id, self.db.clone(), self.cfg.clone())
+        Mod::load(element_id, self.db.clone(), self.cfg.clone())
     }
 
     pub fn remove_mod(&mut self, mod_: Mod) -> Result<()> {
@@ -287,15 +287,11 @@ impl Game {
         T: TryFrom<DbValue>,
         T::Error: Debug,
     {
+        let db_id = self.id.db_id(&self.db)?;
         let value = self
             .db
             .read()
-            .exec(
-                QueryBuilder::select()
-                    .values(field)
-                    .ids(self.id.db_id(&self.db)?)
-                    .query(),
-            )?
+            .exec(QueryBuilder::select().values(field).ids(db_id).query())?
             .elements
             .pop()
             .expect("successful queries should not be empty")
@@ -311,11 +307,11 @@ impl Game {
     where
         T: Into<DbValue>,
     {
-        let element_id = self.id.db_id(&self.db)?;
+        let db_id = self.id.db_id(&self.db)?;
         self.db.write().exec_mut(
             QueryBuilder::insert()
                 .values([[(field, value).into()]])
-                .ids(element_id)
+                .ids(db_id)
                 .query(),
         )?;
 

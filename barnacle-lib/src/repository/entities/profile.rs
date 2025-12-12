@@ -126,7 +126,10 @@ impl Profile {
 
     /// Add a new [`ModEntry`] to a [`Profile`] that points to the [`Mod`] given by ID.
     pub fn add_mod_entry(&mut self, mod_: Mod) -> Result<()> {
-        let maybe_last_entry_id = self.mod_entries()?.last().map(|e| e.entry_db_id);
+        let maybe_last_entry_db_id = self
+            .mod_entries()?
+            .last()
+            .map(|e| e.entry_id.db_id(&self.db).unwrap());
 
         self.db.write().transaction_mut(|t| -> Result<()> {
             let mod_entry = ModEntryModel::default();
@@ -137,7 +140,7 @@ impl Profile {
                 .expect("A successful query should not be empty")
                 .id;
 
-            match maybe_last_entry_id {
+            match maybe_last_entry_db_id {
                 Some(last_entry_id) => {
                     // Connect last entry in list to new entry
                     t.exec_mut(
@@ -161,11 +164,12 @@ impl Profile {
             }
 
             // Connect new entry to target mod
+            let mod_db_id = mod_.id.db_id(&self.db)?;
             t.exec_mut(
                 QueryBuilder::insert()
                     .edges()
                     .from(mod_entry_id)
-                    .to(mod_.db_id)
+                    .to(mod_db_id)
                     .query(),
             )?;
 
@@ -219,7 +223,14 @@ impl Profile {
         Ok(mod_entry_ids
             .into_iter()
             .zip(mod_ids)
-            .map(|(entry_id, mod_id)| ModEntry::from_id(entry_id, mod_id, self.db.clone()).unwrap())
+            .map(|(entry_db_id, mod_db_id)| {
+                ModEntry::load(
+                    ElementId::load(&self.db, entry_db_id).unwrap(),
+                    ElementId::load(&self.db, mod_db_id).unwrap(),
+                    self.db.clone(),
+                )
+                .unwrap()
+            })
             .collect())
     }
 

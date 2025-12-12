@@ -1,10 +1,10 @@
 use std::fmt::Debug;
 
-use agdb::{DbId, DbValue, QueryBuilder};
+use agdb::{DbValue, QueryBuilder};
 
 use crate::repository::{
-    db::{DbHandle, Uid},
-    entities::{Error, Result, uid},
+    db::DbHandle,
+    entities::{ElementId, Result},
 };
 
 /// Represents a mod entry in the Barnacle system.
@@ -14,21 +14,17 @@ use crate::repository::{
 #[derive(Debug, Clone)]
 pub struct ModEntry {
     /// The ID of the ModEntryModel
-    pub(crate) entry_db_id: DbId,
-    pub(crate) entry_uid: Uid,
+    pub(crate) entry_id: ElementId,
     /// The ID of the ModModel the entry points to
-    pub(crate) mod_db_id: DbId,
-    pub(crate) mod_uid: Uid,
+    pub(crate) mod_id: ElementId,
     pub(crate) db: DbHandle,
 }
 
 impl ModEntry {
-    pub(crate) fn from_id(entry_db_id: DbId, mod_db_id: DbId, db: DbHandle) -> Result<Self> {
+    pub(crate) fn load(entry_id: ElementId, mod_id: ElementId, db: DbHandle) -> Result<Self> {
         Ok(Self {
-            entry_db_id,
-            entry_uid: uid(&db, entry_db_id)?,
-            mod_db_id,
-            mod_uid: uid(&db, mod_db_id)?,
+            entry_id,
+            mod_id,
             db,
         })
     }
@@ -50,7 +46,7 @@ impl ModEntry {
         T: TryFrom<DbValue>,
         T::Error: Debug,
     {
-        self.get_field(self.mod_db_id, self.mod_uid, field)
+        self.get_field(&self.mod_id, field)
     }
 
     fn get_entry_field<T>(&self, field: &str) -> Result<T>
@@ -58,43 +54,46 @@ impl ModEntry {
         T: TryFrom<DbValue>,
         T::Error: Debug,
     {
-        self.get_field(self.entry_db_id, self.entry_uid, field)
+        self.get_field(&self.entry_id, field)
     }
 
-    fn get_field<T>(&self, db_id: DbId, cached_uid: Uid, field: &str) -> Result<T>
+    fn get_field<T>(&self, id: &ElementId, field: &str) -> Result<T>
     where
         T: TryFrom<DbValue>,
         T::Error: Debug,
     {
-        let mut values = self
+        let value = self
             .db
             .read()
             .exec(
                 QueryBuilder::select()
-                    .values([field, "uid"])
-                    .ids(db_id)
+                    .values(field)
+                    .ids(id.db_id(&self.db)?)
                     .query(),
             )?
             .elements
             .pop()
             .expect("successful queries should not be empty")
-            .values;
-
-        let uid = values
-            .pop()
-            .expect("successful queries should not be empty")
-            .value
-            .to_u64()?;
-
-        if uid != cached_uid {
-            return Err(Error::StaleEntityId);
-        }
-
-        let value = values
+            .values
             .pop()
             .expect("successful queries should not be empty")
             .value;
 
         Ok(T::try_from(value).expect("conversion from a `DbValue` must succeed"))
+    }
+
+    pub(crate) fn set_field<T>(&mut self, id: &ElementId, field: &str, value: T) -> Result<()>
+    where
+        T: Into<DbValue>,
+    {
+        let element_id = id.db_id(&self.db)?;
+        self.db.write().exec_mut(
+            QueryBuilder::insert()
+                .values([[(field, value).into()]])
+                .ids(element_id)
+                .query(),
+        )?;
+
+        Ok(())
     }
 }
