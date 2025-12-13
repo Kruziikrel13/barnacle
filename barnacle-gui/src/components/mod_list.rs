@@ -5,21 +5,15 @@ use iced::{
 };
 
 #[derive(Debug, Clone)]
-pub struct ModEntryRow {
-    name: String,
-    notes: String,
-    enabled: bool,
-}
-
-#[derive(Debug, Clone)]
 pub enum Message {
     Loaded(Vec<ModEntry>),
+    ModEntryToggled(ModEntry, bool),
 }
 
 pub enum State {
     Loading,
     Error(String),
-    Loaded(Vec<ModEntryRow>),
+    Loaded(Vec<ModEntry>),
 }
 
 pub struct ModList {
@@ -51,17 +45,9 @@ impl ModList {
 
     pub fn update(&mut self, message: Message) -> Task<Message> {
         match message {
-            Message::Loaded(mod_entries) => {
-                let rows = mod_entries
-                    .iter()
-                    .map(|m| ModEntryRow {
-                        name: m.name().unwrap().to_string(),
-                        notes: m.notes().unwrap().to_string(),
-                        enabled: m.enabled().unwrap(),
-                    })
-                    .collect();
-
-                self.state = State::Loaded(rows)
+            Message::Loaded(entries) => self.state = State::Loaded(entries),
+            Message::ModEntryToggled(mut entry, state) => {
+                entry.set_enabled(state).unwrap();
             }
         }
 
@@ -72,14 +58,21 @@ impl ModList {
         match &self.state {
             State::Loading => column![text("Loading mods...")],
             State::Error(e) => column![text(e)],
-            State::Loaded(rows) => {
+            State::Loaded(mod_entries) => {
                 let columns = [
-                    table::column(text("Name"), |row: ModEntryRow| text(row.name)),
-                    table::column(text("Notes"), |row: ModEntryRow| text(row.notes)),
-                    table::column(text("Status"), |row: ModEntryRow| checkbox(row.enabled)),
+                    table::column(text("Name"), |entry: ModEntry| text(entry.name().unwrap())),
+                    table::column(text("Notes"), |entry: ModEntry| {
+                        text(entry.notes().unwrap())
+                    }),
+                    table::column(text("Status"), |entry: ModEntry| {
+                        checkbox(entry.enabled().unwrap())
+                            .on_toggle(move |state| Message::ModEntryToggled(entry.clone(), state))
+                    }),
                 ];
 
-                column![scrollable(table(columns, rows.clone()).width(Length::Fill))]
+                column![scrollable(
+                    table(columns, mod_entries.clone()).width(Length::Fill)
+                )]
             }
         }
         .into()

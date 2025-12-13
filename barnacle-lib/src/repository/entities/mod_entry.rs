@@ -37,8 +37,20 @@ impl ModEntry {
         self.get_entry_field("enabled")
     }
 
+    pub fn set_enabled(&mut self, value: bool) -> Result<()> {
+        self.set_entry_field("enabled", value)
+    }
+
     pub fn notes(&self) -> Result<String> {
         self.get_entry_field("notes")
+    }
+
+    fn get_entry_field<T>(&self, field: &str) -> Result<T>
+    where
+        T: TryFrom<DbValue>,
+        T::Error: Debug,
+    {
+        self.get_field(self.entry_id, field)
     }
 
     fn get_mod_field<T>(&self, field: &str) -> Result<T>
@@ -49,12 +61,18 @@ impl ModEntry {
         self.get_field(self.mod_id, field)
     }
 
-    fn get_entry_field<T>(&self, field: &str) -> Result<T>
+    fn set_entry_field<T>(&mut self, field: &str, value: T) -> Result<()>
     where
-        T: TryFrom<DbValue>,
-        T::Error: Debug,
+        T: Into<DbValue>,
     {
-        self.get_field(self.entry_id, field)
+        self.set_field(self.entry_id, field, value)
+    }
+
+    fn set_mod_field<T>(&mut self, field: &str, value: T) -> Result<()>
+    where
+        T: Into<DbValue>,
+    {
+        self.set_field(self.mod_id, field, value)
     }
 
     fn get_field<T>(&self, id: EntityId, field: &str) -> Result<T>
@@ -119,6 +137,12 @@ mod test {
         let mut profile = game.add_profile("Test").unwrap();
         let mod_ = game.add_mod("Super Duper Mod", None).unwrap();
 
-        profile.add_mod_entry(mod_).unwrap().enabled().unwrap();
+        let mut entry = profile.add_mod_entry(mod_).unwrap();
+
+        assert!(entry.enabled().unwrap());
+
+        entry.set_enabled(false).unwrap();
+
+        assert!(!entry.enabled().unwrap());
     }
 }

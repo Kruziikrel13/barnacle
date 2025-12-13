@@ -17,8 +17,8 @@ pub enum Message {
 pub struct EditDialog {
     game: Option<Game>,
     name: String,
+    deploy_kinds: combo_box::State<DeployKind>,
     deploy_kind: Option<DeployKind>,
-    deploy_kind_state: combo_box::State<DeployKind>,
 }
 
 impl EditDialog {
@@ -28,7 +28,7 @@ impl EditDialog {
                 game: None,
                 name: "".into(),
                 deploy_kind: None,
-                deploy_kind_state: combo_box::State::new(DeployKind::iter().collect()),
+                deploy_kinds: combo_box::State::new(DeployKind::iter().collect()),
             },
             Task::none(),
         )
@@ -91,7 +91,7 @@ impl EditDialog {
             row![
                 text("Deploy kind: "),
                 combo_box(
-                    &self.deploy_kind_state,
+                    &self.deploy_kinds,
                     "Select a deploy kind",
                     self.deploy_kind.as_ref(),
                     Message::DeployKindSelected

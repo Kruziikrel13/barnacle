@@ -64,6 +64,7 @@ impl LibraryManager {
                 Task::none()
             }
             Message::CloseButtonSelected => Task::none(),
+            // TODO: Profiles tab game selection combo box doesn't get updated about newly created games
             Message::GamesTab(msg) => self.games_tab.update(msg).map(Message::GamesTab),
             Message::ProfilesTab(msg) => self.profiles_tab.update(msg).map(Message::ProfilesTab),
         }

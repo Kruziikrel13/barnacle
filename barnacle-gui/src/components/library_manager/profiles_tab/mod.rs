@@ -26,6 +26,7 @@ pub enum Message {
     ShowNewDialog,
     ShowEditDialog(Profile),
     DeleteButtonPressed(Profile),
+    GameSelected(Game),
     // Child messages
     NewDialog(new_dialog::Message),
     EditDialog(edit_dialog::Message),
@@ -38,9 +39,9 @@ pub enum State {
 }
 
 pub struct Tab {
-    selected_game: Game,
-    // selected_game_state: combo_box::State<Game>,
     state: State,
+    selected_game: Game,
+    game_options: combo_box::State<Game>,
     show_new_dialog: bool,
     show_edit_dialog: bool,
     // Components
@@ -59,9 +60,7 @@ impl Tab {
         (
             Self {
                 selected_game: selected_game.clone(),
-                // selected_game_state: combo_box::State::new(
-                //     games.iter().map(|g| g.name().unwrap()).collect(),
-                // ),
+                game_options: combo_box::State::new(games),
                 state: State::Loading,
                 show_new_dialog: false,
                 show_edit_dialog: false,
@@ -100,6 +99,11 @@ impl Tab {
                 },
                 |_| Message::ProfileDeleted,
             ),
+            Message::GameSelected(game) => {
+                self.selected_game = game.clone();
+                self.new_dialog.set_game(game.clone());
+                update_profiles_list(&game)
+            }
             Message::NewDialog(msg) => match msg {
                 new_dialog::Message::CancelPressed => {
                     self.show_new_dialog = false;
@@ -135,6 +139,12 @@ impl Tab {
                 let children = profiles.iter().map(profile_row);
 
                 let content = column![
+                    combo_box(
+                        &self.game_options,
+                        "Select a game...",
+                        Some(&self.selected_game),
+                        Message::GameSelected
+                    ),
                     row![button("New").on_press(Message::ShowNewDialog)],
                     scrollable(Column::with_children(children)).width(Length::Fill)
                 ]

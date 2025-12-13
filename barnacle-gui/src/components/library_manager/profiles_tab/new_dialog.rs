@@ -1,7 +1,7 @@
 use barnacle_lib::repository::Game;
 use iced::{
     Element, Task,
-    widget::{button, column, combo_box, container, row, space, text, text_input},
+    widget::{button, column, container, row, space, text, text_input},
 };
 
 #[derive(Debug, Clone)]
@@ -26,6 +26,10 @@ impl NewDialog {
             },
             Task::none(),
         )
+    }
+
+    pub fn set_game(&mut self, new_game: Game) {
+        self.game = new_game;
     }
 
     /// Reset the dialog state
