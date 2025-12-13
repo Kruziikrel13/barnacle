@@ -12,6 +12,7 @@ use crate::fs::{config_dir, data_dir};
 const CURRENT_CONFIG_VERSION: u16 = 1;
 const FILE_NAME: &str = "core.toml";
 
+/// Handle to backend's core configuration
 pub(crate) type Cfg = Arc<RwLock<CoreConfig>>;
 
 /// The backend's core configuration, serialized to TOML.

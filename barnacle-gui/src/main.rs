@@ -28,7 +28,6 @@ enum Message {
     ModList(mod_list::Message),
     LibraryManager(library_manager::Message),
     ShowLibraryManager,
-    HideLibraryManager,
 }
 
 struct App {
@@ -64,7 +63,7 @@ impl App {
                     barnacle_lib::repository::DeployKind::CreationEngine,
                 )
                 .unwrap();
-            let mut profile = game.add_profile("Test Profile").unwrap();
+            let profile = game.add_profile("Test Profile").unwrap();
 
             repo.set_current_profile(&profile).unwrap();
 
@@ -109,10 +108,6 @@ impl App {
             },
             Message::ShowLibraryManager => {
                 self.show_library_manager = true;
-                Task::none()
-            }
-            Message::HideLibraryManager => {
-                self.show_library_manager = false;
                 Task::none()
             }
         }
