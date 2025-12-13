@@ -12,11 +12,10 @@ use crate::repository::{
     CoreConfigHandle,
     db::{
         DbHandle,
-        models::{GameModel, ModEntryModel, ModModel, ProfileModel},
+        models::{GameModel, ProfileModel},
     },
     entities::{
-        EntityId, Result, game::Game, get_field, mod_::Mod, mod_entry::ModEntry, next_uid,
-        set_field,
+        EntityId, Result, game::Game, get_field, mod_::Mod, mod_entry::ModEntry, set_field,
     },
 };
 
@@ -139,6 +138,10 @@ impl Profile {
     /// Add a new [`ModEntry`] to a [`Profile`] that points to the [`Mod`] given by ID.
     pub fn add_mod_entry(&self, mod_: Mod) -> Result<ModEntry> {
         ModEntry::add(&self.db, self, mod_)
+    }
+
+    pub fn remove_mod_entry(&self, entry: ModEntry) -> Result<()> {
+        ModEntry::remove(entry, self)
     }
 
     pub fn mod_entries(&self) -> Result<Vec<ModEntry>> {

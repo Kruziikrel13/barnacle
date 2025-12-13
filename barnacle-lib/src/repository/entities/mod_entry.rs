@@ -105,6 +105,74 @@ impl ModEntry {
         ModEntry::load(entry_db_id, mod_db_id, db.clone())
     }
 
+    pub(crate) fn remove(self, profile: &Profile) -> Result<()> {
+        let id = self.entry_id.db_id(&self.db)?;
+        let profile_id = profile.id.db_id(&self.db)?;
+        let entry_ids: Vec<DbId> = self
+            .db
+            .read()
+            .exec(
+                QueryBuilder::select()
+                    .elements::<ModEntryModel>()
+                    .search()
+                    .from(profile_id)
+                    .query(),
+            )?
+            .elements
+            .iter()
+            .map(|e| e.id)
+            .collect();
+
+        let mut iter = entry_ids.into_iter().peekable();
+        let mut prev = None;
+        while let Some(curr) = iter.next() {
+            if curr == id {
+                let next = iter.peek().copied();
+
+                match (prev, next) {
+                    // First element
+                    (None, Some(next)) => self.db.write().transaction_mut(|t| -> Result<()> {
+                        t.exec_mut(QueryBuilder::remove().ids(curr).query())?;
+
+                        // Connect profile to new first element
+                        t.exec_mut(
+                            QueryBuilder::insert()
+                                .edges()
+                                .from(profile_id)
+                                .to(next)
+                                .query(),
+                        )?;
+
+                        Ok(())
+                    })?,
+                    // Middle element
+                    (Some(prev), Some(next)) => {
+                        self.db.write().transaction_mut(|t| -> Result<()> {
+                            t.exec_mut(QueryBuilder::remove().ids(curr).query())?;
+
+                            // Connect previous element to next element
+                            t.exec_mut(QueryBuilder::insert().edges().from(prev).to(next).query())?;
+
+                            Ok(())
+                        })?
+                    }
+                    // Last or only element
+                    (Some(_), None) | (None, None) => {
+                        self.db
+                            .write()
+                            .exec_mut(QueryBuilder::remove().ids(curr).query())?;
+                    }
+                }
+
+                break;
+            }
+
+            prev = Some(curr);
+        }
+
+        Ok(())
+    }
+
     pub(crate) fn list(db: &DbHandle, profile: &Profile) -> Result<Vec<Self>> {
         let db_id = profile.id.db_id(db)?;
         let mod_entry_ids: Vec<DbId> = db
@@ -200,8 +268,15 @@ impl Display for ModEntry {
     }
 }
 
+impl PartialEq for ModEntry {
+    fn eq(&self, other: &Self) -> bool {
+        self.entry_id == other.entry_id && self.mod_id == other.mod_id
+    }
+}
+
 #[cfg(test)]
 mod test {
+    use super::*;
     use crate::{Repository, repository::DeployKind};
 
     #[test]
@@ -218,6 +293,49 @@ mod test {
         profile.add_mod_entry(mod2).unwrap();
 
         assert_eq!(profile.mod_entries().unwrap().len(), 2);
+    }
+
+    #[test]
+    fn test_remove() {
+        let mut repo = Repository::mock();
+
+        let mut game = repo.add_game("Morrowind", DeployKind::OpenMW).unwrap();
+        let profile = game.add_profile("Test").unwrap();
+
+        let mod_entries: Vec<_> = (1..=6)
+            .map(|i| {
+                let m = game.add_mod(&format!("Mod{i}"), None).unwrap();
+                profile.add_mod_entry(m).unwrap()
+            })
+            .collect();
+
+        assert_eq!(profile.mod_entries().unwrap().len(), 6);
+
+        let remove_and_check = |entry: &ModEntry| {
+            profile.remove_mod_entry(entry.clone()).unwrap();
+            let entries = profile.mod_entries().unwrap();
+            assert!(!entries.contains(entry));
+        };
+
+        remove_and_check(mod_entries.first().unwrap()); // first
+        remove_and_check(mod_entries.get(3).unwrap()); // middle
+        remove_and_check(mod_entries.get(5).unwrap()); // last
+
+        // Check remaining entries are exactly the ones we expect
+        let remaining: Vec<&ModEntry> = mod_entries
+            .iter()
+            .enumerate()
+            .filter_map(|(i, e)| match i {
+                // Filter out the entries we removed
+                0 | 3 | 5 => None,
+                // These are the ones we expect to be here
+                _ => Some(e),
+            })
+            .collect();
+        assert_eq!(
+            profile.mod_entries().unwrap().iter().collect::<Vec<_>>(),
+            remaining
+        );
     }
 
     #[test]

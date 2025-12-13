@@ -1,10 +1,6 @@
-use barnacle_gui::icons::icon;
-use barnacle_lib::{
-    Repository,
-    repository::{Profile, entities::ModEntry},
-};
+use barnacle_lib::{Repository, repository::entities::ModEntry};
 use iced::{
-    Element, Length, Task,
+    Element, Length, Renderer, Task, Theme,
     widget::{button, checkbox, column, scrollable, table, text},
 };
 
@@ -69,13 +65,14 @@ impl ModList {
             State::Error(e) => column![text(e)],
             State::Loaded(mod_entries) => {
                 let columns = [
-                    table::column(text("Name"), |entry: ModEntry| text(entry.name().unwrap())),
+                    table::column(
+                        // TODO: Make clicking on the header sort this guy
+                        button("Name").style(button::subtle).width(Length::Fill),
+                        |entry: ModEntry| text(entry.name().unwrap()),
+                    ),
                     table::column(text("Status"), |entry: ModEntry| {
                         checkbox(entry.enabled().unwrap())
                             .on_toggle(move |state| Message::ModEntryToggled(entry.clone(), state))
-                    }),
-                    table::column(text("Actions"), |entry: ModEntry| {
-                        button(icon("delete")).on_press(Message::ModEntryDeleted(entry))
                     }),
                 ];
 
@@ -86,4 +83,10 @@ impl ModList {
         }
         .into()
     }
+}
+
+fn context_menu<'a, U>(underlay: U)
+where
+    U: Into<Element<'a, Message, Theme, Renderer>>,
+{
 }

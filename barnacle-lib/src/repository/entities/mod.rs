@@ -82,6 +82,12 @@ impl EntityId {
     }
 }
 
+impl PartialEq for EntityId {
+    fn eq(&self, other: &Self) -> bool {
+        self.uid == other.uid
+    }
+}
+
 pub(crate) fn next_uid(db: &DbHandle) -> Result<Uid> {
     db.write().transaction_mut(|t| -> Result<u64> {
         let uid = t
