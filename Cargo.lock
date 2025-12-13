@@ -389,6 +389,7 @@ dependencies = [
  "human-panic",
  "iced",
  "include_dir",
+ "parking_lot",
  "serde",
  "strum",
  "tokio",

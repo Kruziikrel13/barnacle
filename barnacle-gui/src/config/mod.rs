@@ -1,6 +1,7 @@
-use std::fs;
+use std::{fs, sync::Arc};
 
 use barnacle_lib::fs::config_dir;
+use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 
 use crate::config::theme::Theme;
@@ -10,11 +11,18 @@ mod theme;
 const CURRENT_CONFIG_VERSION: u16 = 1;
 const FILE_NAME: &str = "gui.toml";
 
+/// Handle to backend's core configuration
+pub type Cfg = Arc<RwLock<GuiConfig>>;
+
 /// The backend's core configuration, serialized to TOML.
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct GuiConfig {
     theme: Theme,
 }
+
+// pub struct ModList {
+//     sort_state: SortState,
+// }
 
 impl GuiConfig {
     pub fn load() -> Self {

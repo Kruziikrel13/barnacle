@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use barnacle_gui::{config::GuiConfig, icons::icon, modal};
 use barnacle_lib::Repository;
 use iced::{
@@ -6,6 +8,7 @@ use iced::{
     Task, Theme, application,
     widget::{button, column, row, space, text},
 };
+use parking_lot::RwLock;
 use tracing::Level;
 use tracing_subscriber::{EnvFilter, FmtSubscriber};
 
@@ -14,7 +17,7 @@ use crate::components::{
     mod_list::{self, ModList},
 };
 
-mod components;
+pub mod components;
 
 fn main() -> iced::Result {
     application(App::new, App::update, App::view)
@@ -53,8 +56,8 @@ impl App {
             .expect("setting default subscriber failed");
 
         let mut repo = Repository::new();
-        let cfg = GuiConfig::load();
-        let theme = cfg.theme();
+        let cfg = Arc::new(RwLock::new(GuiConfig::load()));
+        let theme = cfg.read().theme();
 
         if repo.games().unwrap().is_empty() {
             let mut game = repo
@@ -73,7 +76,7 @@ impl App {
             }
         }
 
-        let (mod_list, mod_list_task) = ModList::new(repo.clone());
+        let (mod_list, mod_list_task) = ModList::new(repo.clone(), cfg.clone());
         let (library_manager, library_manager_task) = LibraryManager::new(repo.clone());
 
         (

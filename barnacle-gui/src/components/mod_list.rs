@@ -1,4 +1,4 @@
-use barnacle_gui::icons::icon;
+use barnacle_gui::{config::Cfg, icons::icon};
 use barnacle_lib::{
     Repository,
     repository::{Profile, entities::ModEntry},
@@ -25,12 +25,13 @@ pub enum State {
 
 pub struct ModList {
     repo: Repository,
+    cfg: Cfg,
     state: State,
     sort: SortState,
 }
 
 impl ModList {
-    pub fn new(repo: Repository) -> (Self, Task<Message>) {
+    pub fn new(repo: Repository, cfg: Cfg) -> (Self, Task<Message>) {
         let task = Task::perform(
             {
                 let repo = repo.clone();
@@ -45,6 +46,7 @@ impl ModList {
         (
             Self {
                 repo,
+                cfg,
                 state: State::Loading,
                 sort: SortState::default(),
             },
