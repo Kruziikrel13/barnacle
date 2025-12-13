@@ -64,11 +64,11 @@ impl App {
                     barnacle_lib::repository::DeployKind::CreationEngine,
                 )
                 .unwrap();
-            let mut profile = game.add_profile("Test").unwrap();
+            let mut profile = game.add_profile("Test Profile").unwrap();
 
             repo.set_current_profile(&profile).unwrap();
 
-            let mod_ = game.add_mod("Test", None).unwrap();
+            let mod_ = game.add_mod("Cool Mod", None).unwrap();
             profile.add_mod_entry(mod_).unwrap();
         }
 

@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use agdb::{DbId, DbSerialize, DbType, DbValue};
+use agdb::{DbElement, DbId, DbSerialize, DbValue};
 use strum::{Display, EnumIter};
 
 use crate::repository::db::Uid;
@@ -25,7 +25,7 @@ pub enum DeployKind {
     BaldursGate3,
 }
 
-#[derive(Debug, Clone, DbType, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, DbElement, PartialEq, PartialOrd)]
 pub(crate) struct GameModel {
     pub(crate) db_id: Option<DbId>,
     pub(crate) uid: Uid,

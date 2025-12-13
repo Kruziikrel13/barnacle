@@ -1,10 +1,10 @@
 use std::path::PathBuf;
 
-use agdb::{DbId, DbType};
+use agdb::{DbElement, DbId};
 
 use crate::repository::db::Uid;
 
-#[derive(Debug, Clone, DbType, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, DbElement, PartialEq, PartialOrd)]
 pub struct ToolModel {
     db_id: Option<DbId>,
     uid: Uid,
