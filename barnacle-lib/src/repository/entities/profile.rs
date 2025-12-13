@@ -61,7 +61,11 @@ impl Profile {
     // Utility
 
     pub fn dir(&self) -> Result<PathBuf> {
-        Ok(self.parent()?.dir()?.join(self.name()?.to_snake_case()))
+        Ok(self
+            .parent()?
+            .dir()?
+            .join("profiles")
+            .join(self.name()?.to_snake_case()))
     }
 
     pub(crate) fn set_current(db: DbHandle, profile: &Profile) -> Result<()> {
@@ -242,9 +246,10 @@ impl Profile {
         let name = self.name()?;
         let dir = self.dir()?;
 
+        let db_id = self.id.db_id(&self.db)?;
         self.db
             .write()
-            .exec_mut(QueryBuilder::remove().ids(self.id.db_id(&self.db)?).query())?;
+            .exec_mut(QueryBuilder::remove().ids(db_id).query())?;
 
         fs::remove_dir_all(dir).unwrap();
 
@@ -288,7 +293,26 @@ mod test {
         let mut repo = Repository::mock();
 
         let mut game = repo.add_game("Morrowind", DeployKind::OpenMW).unwrap();
-        game.add_profile("Test").unwrap();
+        let profile = game.add_profile("Test").unwrap();
+
+        assert!(profile.dir().unwrap().exists());
+    }
+
+    #[test]
+    fn test_remove() {
+        let mut repo = Repository::mock();
+
+        let mut game = repo.add_game("Skyrim", DeployKind::CreationEngine).unwrap();
+        let profile = game.add_profile("Test").unwrap();
+
+        assert_eq!(game.profiles().unwrap().len(), 1);
+
+        let dir = profile.dir().unwrap();
+
+        game.remove_profile(profile).unwrap();
+
+        assert!(!dir.exists());
+        assert_eq!(game.profiles().unwrap().len(), 0);
     }
 
     #[test]

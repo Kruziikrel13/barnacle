@@ -164,16 +164,30 @@ impl Game {
             .collect())
     }
 
+    pub fn mods(&self) -> Result<Vec<Mod>> {
+        let db_id = self.id.db_id(&self.db)?;
+        Ok(self
+            .db
+            .read()
+            .exec(
+                QueryBuilder::select()
+                    .elements::<ModModel>()
+                    .search()
+                    .from(db_id)
+                    .where_()
+                    .neighbor()
+                    .query(),
+            )?
+            .elements
+            .iter()
+            .map(|e| Mod::load(e.id, self.db.clone(), self.cfg.clone()).unwrap())
+            .collect())
+    }
+
     pub fn add_mod(&mut self, name: &str, path: Option<&Path>) -> Result<Mod> {
-        // TODO: Only attempt to open the archive if the input_path is an archive
-        if let Some(path) = path {
-            let archive = File::open(path).unwrap();
-            uncompress_archive(archive, &self.dir()?, Ownership::Preserve).unwrap();
-            change_dir_permissions(&self.dir()?, Permissions::ReadOnly);
-        }
+        let game_id = self.id.db_id(&self.db)?;
 
         let model = ModModel::new(next_uid(&self.db)?, name);
-        let game_id = self.id.db_id(&self.db)?;
         let mod_id = self.db.write().transaction_mut(|t| -> Result<DbId> {
             let mod_id = t
                 .exec_mut(QueryBuilder::insert().element(model).query())?
@@ -194,7 +208,19 @@ impl Game {
             Ok(mod_id)
         })?;
 
-        Mod::load(mod_id, self.db.clone(), self.cfg.clone())
+        let mod_ = Mod::load(mod_id, self.db.clone(), self.cfg.clone())?;
+
+        // TODO: Only attempt to open the archive if the input_path is an archive
+        if let Some(path) = path {
+            let archive = File::open(path).unwrap();
+            uncompress_archive(archive, &self.dir()?, Ownership::Preserve).unwrap();
+            change_dir_permissions(&self.dir()?, Permissions::ReadOnly);
+        } else {
+            let path = mod_.dir()?;
+            fs::create_dir_all(path).unwrap();
+        };
+
+        Ok(mod_)
     }
 
     pub fn remove_mod(&mut self, mod_: Mod) -> Result<()> {
@@ -305,12 +331,12 @@ mod test {
     fn test_add() {
         let mut repo = Repository::mock();
 
-        repo.add_game("Skyrim", DeployKind::CreationEngine).unwrap();
+        let game1 = repo.add_game("Skyrim", DeployKind::CreationEngine).unwrap();
         repo.add_game("Morrowind", DeployKind::OpenMW).unwrap();
 
         let games = repo.games().unwrap();
-        dbg!(&games);
 
+        assert!(game1.dir().unwrap().exists());
         assert_eq!(games.len(), 2);
         assert_eq!(games.first().unwrap().name().unwrap(), "Morrowind");
         assert_eq!(
@@ -327,8 +353,11 @@ mod test {
 
         assert_eq!(repo.games().unwrap().len(), 1);
 
+        let dir = game.dir().unwrap();
+
         repo.remove_game(game).unwrap();
 
+        assert!(!dir.exists());
         assert_eq!(repo.games().unwrap().len(), 0);
     }
 

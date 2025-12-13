@@ -36,7 +36,11 @@ impl Mod {
     }
 
     pub fn dir(&self) -> Result<PathBuf> {
-        Ok(self.parent()?.dir()?.join(self.name()?.to_snake_case()))
+        Ok(self
+            .parent()?
+            .dir()?
+            .join("mods")
+            .join(self.name()?.to_snake_case()))
     }
 
     /// Returns the parent [`Game`] of this [`Mod`]
@@ -112,7 +116,26 @@ mod test {
         let mut repo = Repository::mock();
 
         let mut game = repo.add_game("Morrowind", DeployKind::OpenMW).unwrap();
-        game.add_mod("Test", None).unwrap();
+        let mod_ = game.add_mod("Test", None).unwrap();
+
+        assert!(mod_.dir().unwrap().exists());
+    }
+
+    #[test]
+    fn test_remove() {
+        let mut repo = Repository::mock();
+
+        let mut game = repo.add_game("Skyrim", DeployKind::CreationEngine).unwrap();
+        let mod_ = game.add_mod("Test", None).unwrap();
+
+        assert_eq!(game.mods().unwrap().len(), 1);
+
+        let dir = mod_.dir().unwrap();
+
+        game.remove_mod(mod_).unwrap();
+
+        assert_eq!(game.mods().unwrap().len(), 0);
+        assert!(!dir.exists())
     }
 
     #[test]
