@@ -53,8 +53,9 @@ impl DbHandle {
                             .aliases([
                                 // Root element nodes
                                 "games",
-                                "profiles",
+                                "mod_entries",
                                 "mods",
+                                "profiles",
                                 "tools",
                                 // State nodes
                                 "current_profile",

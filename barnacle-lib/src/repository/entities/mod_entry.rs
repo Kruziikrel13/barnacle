@@ -1,6 +1,6 @@
 use std::fmt::{self, Debug, Display, Formatter};
 
-use agdb::{DbId, DbValue, QueryBuilder};
+use agdb::{DbId, DbValue, QueryBuilder, QueryId};
 
 use crate::repository::{
     Mod, Profile,
@@ -50,41 +50,42 @@ impl ModEntry {
     }
 
     pub(crate) fn add(db: &DbHandle, profile: &Profile, mod_: Mod) -> Result<Self> {
-        let profile_db_id = profile.id.db_id(db)?;
-        let mod_db_id = mod_.id.db_id(db)?;
+        let profile_id = profile.id.db_id(db)?;
+        let mod_id = mod_.id.db_id(db)?;
 
-        let maybe_last_entry_db_id = profile
+        let maybe_last_entry_id = profile
             .mod_entries()?
             .last()
             .map(|e| e.entry_id.db_id(db).unwrap());
 
         let model = ModEntryModel::new(next_uid(db)?);
-        let entry_db_id = db.write().transaction_mut(|t| -> Result<DbId> {
-            let entry_db_id = t
+        let entry_id = db.write().transaction_mut(|t| -> Result<DbId> {
+            let entry_id = t
                 .exec_mut(QueryBuilder::insert().element(&model).query())?
                 .elements
                 .first()
                 .expect("A successful query should not be empty")
                 .id;
 
-            match maybe_last_entry_db_id {
-                Some(last_entry_db_id) => {
+            match maybe_last_entry_id {
+                Some(last_entry_id) => {
                     // Connect last entry in list to new entry
                     t.exec_mut(
                         QueryBuilder::insert()
                             .edges()
-                            .from(last_entry_db_id)
-                            .to(entry_db_id)
+                            .from([QueryId::from("mod_entries"), QueryId::from(last_entry_id)])
+                            .to(entry_id)
                             .query(),
                     )?;
                 }
+                // First entry
                 None => {
-                    // Connect profile node to new entry (first entry in the list)
+                    // Connect profile node to new entry
                     t.exec_mut(
                         QueryBuilder::insert()
                             .edges()
-                            .from(profile_db_id)
-                            .to(entry_db_id)
+                            .from([QueryId::from("mod_entries"), QueryId::from(profile_id)])
+                            .to(entry_id)
                             .query(),
                     )?;
                 }
@@ -94,17 +95,18 @@ impl ModEntry {
             t.exec_mut(
                 QueryBuilder::insert()
                     .edges()
-                    .from(entry_db_id)
-                    .to(mod_db_id)
+                    .from(entry_id)
+                    .to(mod_id)
                     .query(),
             )?;
 
-            Ok(entry_db_id)
+            Ok(entry_id)
         })?;
 
-        ModEntry::load(entry_db_id, mod_db_id, db.clone())
+        ModEntry::load(entry_id, mod_id, db.clone())
     }
 
+    /// Remove the given [`ModEntry`] from the list
     pub(crate) fn remove(self, profile: &Profile) -> Result<()> {
         let id = self.entry_id.db_id(&self.db)?;
         let profile_id = profile.id.db_id(&self.db)?;
