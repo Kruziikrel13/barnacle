@@ -1,6 +1,6 @@
 use std::{fmt::Debug, path::PathBuf};
 
-use agdb::{DbValue, QueryBuilder};
+use agdb::DbValue;
 
 use crate::repository::{
     config::CoreConfigHandle,

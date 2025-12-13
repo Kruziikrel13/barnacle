@@ -17,7 +17,7 @@ use crate::{
             DbHandle,
             models::{DeployKind, GameModel, ModModel, ProfileModel},
         },
-        entities::{EntityId, Result, get_field, mod_::Mod, profile::Profile, set_field},
+        entities::{EntityId, Result, get_field, mod_::Mod, next_uid, profile::Profile, set_field},
     },
 };
 
@@ -34,7 +34,8 @@ pub struct Game {
 
 impl Game {
     /// Load some existing [`Game`] from the database
-    pub(crate) fn load(id: EntityId, db: DbHandle, cfg: CoreConfigHandle) -> Result<Self> {
+    pub(crate) fn load(db_id: DbId, db: DbHandle, cfg: CoreConfigHandle) -> Result<Self> {
+        let id = EntityId::load(&db, db_id)?;
         Ok(Self { id, db, cfg })
     }
 
@@ -99,40 +100,38 @@ impl Game {
     }
 
     pub fn add_profile(&mut self, name: &str) -> Result<Profile> {
-        let element_id = EntityId::create(&self.db, |uid| {
-            let model = ProfileModel::new(uid, name);
-            if self
-                .profiles()?
-                .iter()
-                .any(|p: &Profile| p.name().unwrap() == model.name)
-            {
-                // return Err(Error::UniqueViolation(UniqueConstraint::ProfileName));
-                panic!("Unique violation")
-            }
+        let model = ProfileModel::new(next_uid(&self.db)?, name);
+        if self
+            .profiles()?
+            .iter()
+            .any(|p: &Profile| p.name().unwrap() == model.name)
+        {
+            // return Err(Error::UniqueViolation(UniqueConstraint::ProfileName));
+            panic!("Unique violation")
+        }
 
-            let game_id = self.id.db_id(&self.db)?;
-            Ok(self.db.write().transaction_mut(|t| -> Result<DbId> {
-                let profile_id = t
-                    .exec_mut(QueryBuilder::insert().element(model).query())?
-                    .elements
-                    .first()
-                    .expect("A successful query should not be empty")
-                    .id;
+        let game_id = self.id.db_id(&self.db)?;
+        let profile_id = self.db.write().transaction_mut(|t| -> Result<DbId> {
+            let profile_id = t
+                .exec_mut(QueryBuilder::insert().element(model).query())?
+                .elements
+                .first()
+                .expect("A successful query should not be empty")
+                .id;
 
-                // Link Profile to the specified Game node and root "profiles" node
-                t.exec_mut(
-                    QueryBuilder::insert()
-                        .edges()
-                        .from([QueryId::from("profiles"), QueryId::from(game_id)])
-                        .to(profile_id)
-                        .query(),
-                )?;
+            // Link Profile to the specified Game node and root "profiles" node
+            t.exec_mut(
+                QueryBuilder::insert()
+                    .edges()
+                    .from([QueryId::from("profiles"), QueryId::from(game_id)])
+                    .to(profile_id)
+                    .query(),
+            )?;
 
-                Ok(profile_id)
-            })?)
+            Ok(profile_id)
         })?;
 
-        let profile = Profile::load(element_id, self.db.clone(), self.cfg.clone())?;
+        let profile = Profile::load(profile_id, self.db.clone(), self.cfg.clone())?;
 
         fs::create_dir_all(profile.dir()?).unwrap();
 
@@ -161,10 +160,7 @@ impl Game {
             )?
             .elements
             .iter()
-            .map(|e| {
-                let profile_db_id = EntityId::load(&self.db, e.id).unwrap();
-                Profile::load(profile_db_id, self.db.clone(), self.cfg.clone()).unwrap()
-            })
+            .map(|e| Profile::load(e.id, self.db.clone(), self.cfg.clone()).unwrap())
             .collect())
     }
 
@@ -176,31 +172,29 @@ impl Game {
             change_dir_permissions(&self.dir()?, Permissions::ReadOnly);
         }
 
-        let element_id = EntityId::create(&self.db, |uid| {
-            let model = ModModel::new(uid, name);
-            let game_id = self.id.db_id(&self.db)?;
-            self.db.write().transaction_mut(|t| -> Result<DbId> {
-                let mod_id = t
-                    .exec_mut(QueryBuilder::insert().element(model).query())?
-                    .elements
-                    .first()
-                    .expect("A successful query should not be empty")
-                    .id;
+        let model = ModModel::new(next_uid(&self.db)?, name);
+        let game_id = self.id.db_id(&self.db)?;
+        let mod_id = self.db.write().transaction_mut(|t| -> Result<DbId> {
+            let mod_id = t
+                .exec_mut(QueryBuilder::insert().element(model).query())?
+                .elements
+                .first()
+                .expect("A successful query should not be empty")
+                .id;
 
-                // Link Profile to the specified Game node and root "profiles" node
-                t.exec_mut(
-                    QueryBuilder::insert()
-                        .edges()
-                        .from([QueryId::from("profiles"), QueryId::from(game_id)])
-                        .to(mod_id)
-                        .query(),
-                )?;
+            // Link Profile to the specified Game node and root "profiles" node
+            t.exec_mut(
+                QueryBuilder::insert()
+                    .edges()
+                    .from([QueryId::from("profiles"), QueryId::from(game_id)])
+                    .to(mod_id)
+                    .query(),
+            )?;
 
-                Ok(mod_id)
-            })
+            Ok(mod_id)
         })?;
 
-        Mod::load(element_id, self.db.clone(), self.cfg.clone())
+        Mod::load(mod_id, self.db.clone(), self.cfg.clone())
     }
 
     pub fn remove_mod(&mut self, mod_: Mod) -> Result<()> {
@@ -211,7 +205,7 @@ impl Game {
 
     /// Insert a new [`Game`] into the database. The [`Game`] must have a unique name.
     pub(crate) fn add(
-        db: DbHandle,
+        db: &DbHandle,
         cfg: CoreConfigHandle,
         name: &str,
         deploy_kind: DeployKind,
@@ -224,31 +218,29 @@ impl Game {
             panic!("UniqueViolation");
         }
 
-        let element_id = EntityId::create(&db, |uid| {
-            let model = GameModel::new(uid, name, deploy_kind);
-            db.write().transaction_mut(|t| -> Result<DbId> {
-                let game_id = t
-                    .exec_mut(QueryBuilder::insert().element(model).query())
-                    .unwrap()
-                    .elements
-                    .first()
-                    .unwrap()
-                    .id;
+        let model = GameModel::new(next_uid(db)?, name, deploy_kind);
+        let db_id = db.write().transaction_mut(|t| -> Result<DbId> {
+            let game_id = t
+                .exec_mut(QueryBuilder::insert().element(model).query())
+                .unwrap()
+                .elements
+                .first()
+                .unwrap()
+                .id;
 
-                t.exec_mut(
-                    QueryBuilder::insert()
-                        .edges()
-                        .from("games")
-                        .to(game_id)
-                        .query(),
-                )
-                .unwrap();
+            t.exec_mut(
+                QueryBuilder::insert()
+                    .edges()
+                    .from("games")
+                    .to(game_id)
+                    .query(),
+            )
+            .unwrap();
 
-                Ok(game_id)
-            })
+            Ok(game_id)
         })?;
 
-        let game = Game::load(element_id, db.clone(), cfg.clone())?;
+        let game = Game::load(db_id, db.clone(), cfg.clone())?;
 
         fs::create_dir_all(game.dir().unwrap()).unwrap();
 
@@ -273,9 +265,7 @@ impl Game {
             )?
             .elements
             .iter()
-            .map(|e| {
-                Game::load(EntityId::load(&db, e.id).unwrap(), db.clone(), cfg.clone()).unwrap()
-            })
+            .map(|e| Game::load(e.id, db.clone(), cfg.clone()).unwrap())
             .collect())
     }
 

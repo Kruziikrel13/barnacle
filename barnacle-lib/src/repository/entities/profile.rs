@@ -11,7 +11,8 @@ use crate::repository::{
         models::{GameModel, ModEntryModel, ModModel, ProfileModel},
     },
     entities::{
-        EntityId, Result, game::Game, get_field, mod_::Mod, mod_entry::ModEntry, set_field,
+        EntityId, Result, game::Game, get_field, mod_::Mod, mod_entry::ModEntry, next_uid,
+        set_field,
     },
 };
 
@@ -27,7 +28,8 @@ pub struct Profile {
 }
 
 impl Profile {
-    pub(crate) fn load(id: EntityId, db: DbHandle, cfg: CoreConfigHandle) -> Result<Self> {
+    pub(crate) fn load(db_id: DbId, db: DbHandle, cfg: CoreConfigHandle) -> Result<Self> {
+        let id = EntityId::load(&db, db_id)?;
         Ok(Self { id, db, cfg })
     }
 
@@ -99,7 +101,7 @@ impl Profile {
             .expect("A successful query should not be empty")
             .id;
 
-        Profile::load(EntityId::load(&db, db_id)?, db.clone(), cfg.clone())
+        Profile::load(db_id, db.clone(), cfg.clone())
     }
 
     /// Returns the parent [`Game`] of this [`Profile`]
@@ -120,8 +122,7 @@ impl Profile {
             .expect("A successful query should not be empty")
             .id;
 
-        let id = EntityId::load(&self.db, parent_game_id)?;
-        Game::load(id, self.db.clone(), self.cfg.clone())
+        Game::load(parent_game_id, self.db.clone(), self.cfg.clone())
     }
 
     // Operations
@@ -136,57 +137,51 @@ impl Profile {
             .last()
             .map(|e| e.entry_id.db_id(&self.db).unwrap());
 
-        let entry_element_id = EntityId::create(&self.db, |uid| {
-            let model = ModEntryModel::new(uid);
-            self.db.write().transaction_mut(|t| -> Result<DbId> {
-                let mod_entry_db_id = t
-                    .exec_mut(QueryBuilder::insert().element(&model).query())?
-                    .elements
-                    .first()
-                    .expect("A successful query should not be empty")
-                    .id;
+        let model = ModEntryModel::new(next_uid(&self.db)?);
+        let entry_db_id = self.db.write().transaction_mut(|t| -> Result<DbId> {
+            let entry_db_id = t
+                .exec_mut(QueryBuilder::insert().element(&model).query())?
+                .elements
+                .first()
+                .expect("A successful query should not be empty")
+                .id;
 
-                match maybe_last_entry_db_id {
-                    Some(last_entry_db_id) => {
-                        // Connect last entry in list to new entry
-                        t.exec_mut(
-                            QueryBuilder::insert()
-                                .edges()
-                                .from(last_entry_db_id)
-                                .to(mod_entry_db_id)
-                                .query(),
-                        )?;
-                    }
-                    None => {
-                        // Connect profile node to new entry (first entry in the list)
-                        t.exec_mut(
-                            QueryBuilder::insert()
-                                .edges()
-                                .from(db_id)
-                                .to(mod_entry_db_id)
-                                .query(),
-                        )?;
-                    }
+            match maybe_last_entry_db_id {
+                Some(last_entry_db_id) => {
+                    // Connect last entry in list to new entry
+                    t.exec_mut(
+                        QueryBuilder::insert()
+                            .edges()
+                            .from(last_entry_db_id)
+                            .to(entry_db_id)
+                            .query(),
+                    )?;
                 }
+                None => {
+                    // Connect profile node to new entry (first entry in the list)
+                    t.exec_mut(
+                        QueryBuilder::insert()
+                            .edges()
+                            .from(db_id)
+                            .to(entry_db_id)
+                            .query(),
+                    )?;
+                }
+            }
 
-                // Connect new entry to target mod
-                t.exec_mut(
-                    QueryBuilder::insert()
-                        .edges()
-                        .from(mod_entry_db_id)
-                        .to(mod_db_id)
-                        .query(),
-                )?;
+            // Connect new entry to target mod
+            t.exec_mut(
+                QueryBuilder::insert()
+                    .edges()
+                    .from(entry_db_id)
+                    .to(mod_db_id)
+                    .query(),
+            )?;
 
-                Ok(mod_entry_db_id)
-            })
+            Ok(entry_db_id)
         })?;
 
-        ModEntry::load(
-            entry_element_id,
-            EntityId::load(&self.db, mod_db_id)?,
-            self.db.clone(),
-        )
+        ModEntry::load(entry_db_id, mod_db_id, self.db.clone())
     }
 
     pub fn mod_entries(&self) -> Result<Vec<ModEntry>> {
@@ -233,12 +228,7 @@ impl Profile {
             .into_iter()
             .zip(mod_ids)
             .map(|(entry_db_id, mod_db_id)| {
-                ModEntry::load(
-                    EntityId::load(&self.db, entry_db_id).unwrap(),
-                    EntityId::load(&self.db, mod_db_id).unwrap(),
-                    self.db.clone(),
-                )
-                .unwrap()
+                ModEntry::load(entry_db_id, mod_db_id, self.db.clone()).unwrap()
             })
             .collect())
     }

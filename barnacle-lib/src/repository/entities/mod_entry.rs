@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 
-use agdb::DbValue;
+use agdb::{DbId, DbValue};
 
 use crate::repository::{
     db::DbHandle,
@@ -21,10 +21,10 @@ pub struct ModEntry {
 }
 
 impl ModEntry {
-    pub(crate) fn load(entry_id: EntityId, mod_id: EntityId, db: DbHandle) -> Result<Self> {
+    pub(crate) fn load(entry_db_id: DbId, mod_db_id: DbId, db: DbHandle) -> Result<Self> {
         Ok(Self {
-            entry_id,
-            mod_id,
+            entry_id: EntityId::load(&db, entry_db_id)?,
+            mod_id: EntityId::load(&db, mod_db_id)?,
             db,
         })
     }

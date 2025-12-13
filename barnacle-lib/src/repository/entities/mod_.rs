@@ -1,6 +1,6 @@
 use std::{fmt::Debug, fs, path::PathBuf};
 
-use agdb::{DbValue, QueryBuilder};
+use agdb::{DbId, DbValue, QueryBuilder};
 use heck::ToSnakeCase;
 use tracing::debug;
 
@@ -22,7 +22,8 @@ pub struct Mod {
 }
 
 impl Mod {
-    pub(crate) fn load(id: EntityId, db: DbHandle, cfg: CoreConfigHandle) -> Result<Self> {
+    pub(crate) fn load(db_id: DbId, db: DbHandle, cfg: CoreConfigHandle) -> Result<Self> {
+        let id = EntityId::load(&db, db_id)?;
         Ok(Self { id, db, cfg })
     }
 
@@ -53,8 +54,7 @@ impl Mod {
             .expect("A successful query should not be empty")
             .id;
 
-        let id = EntityId::load(&self.db, parent_game_id)?;
-        Game::load(id, self.db.clone(), self.cfg.clone())
+        Game::load(parent_game_id, self.db.clone(), self.cfg.clone())
     }
 
     pub(crate) fn remove(self) -> Result<()> {

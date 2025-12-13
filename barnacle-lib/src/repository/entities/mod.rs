@@ -41,48 +41,6 @@ pub(crate) struct EntityId {
 }
 
 impl EntityId {
-    /// Creates a new [`EntityId`] for a freshly inserted element.
-    ///
-    /// Allocates a new UID for the entity in the database and guarantees that the
-    /// resulting [`EntityId`] refers to a valid, unique entity. The provided closure
-    /// is called with the newly allocated UID and can be used to perform any initialization
-    /// logic for the entity (e.g. linking edges). This is to prevent a caller clobbering an
-    /// existing entity's UID by calling this function.
-    pub fn create<F>(db: &DbHandle, insert_element: F) -> Result<Self>
-    where
-        F: FnOnce(u64) -> Result<DbId>,
-    {
-        let uid = db.write().transaction_mut(|t| -> Result<u64> {
-            let uid = t
-                .exec(
-                    QueryBuilder::select()
-                        .values("next_uid")
-                        .ids("next_uid")
-                        .query(),
-                )?
-                .elements
-                .pop()
-                .unwrap()
-                .values
-                .pop()
-                .unwrap()
-                .value
-                .to_u64()
-                .unwrap();
-            t.exec_mut(
-                QueryBuilder::insert()
-                    .values([[("next_uid", uid + 1).into()]])
-                    .ids("next_uid")
-                    .query(),
-            )?;
-
-            Ok(uid)
-        })?;
-
-        let db_id = insert_element(uid)?;
-        Ok(Self { db_id, uid })
-    }
-
     /// Load an [`ElementId`] from an existing element.
     pub fn load(db: &DbHandle, db_id: DbId) -> Result<Self> {
         let uid = db
@@ -117,14 +75,43 @@ impl EntityId {
             .to_u64()?;
 
         if uid != self.uid {
-            return Err(Error::StaleEntityId);
+            Err(Error::StaleEntityId)
         } else {
             Ok(self.db_id)
         }
     }
 }
 
-fn get_field<T>(db: &DbHandle, id: EntityId, field: &str) -> Result<T>
+pub(crate) fn next_uid(db: &DbHandle) -> Result<Uid> {
+    db.write().transaction_mut(|t| -> Result<u64> {
+        let uid = t
+            .exec(
+                QueryBuilder::select()
+                    .values("next_uid")
+                    .ids("next_uid")
+                    .query(),
+            )?
+            .elements
+            .pop()
+            .unwrap()
+            .values
+            .pop()
+            .unwrap()
+            .value
+            .to_u64()
+            .unwrap();
+        t.exec_mut(
+            QueryBuilder::insert()
+                .values([[("next_uid", uid + 1).into()]])
+                .ids("next_uid")
+                .query(),
+        )?;
+
+        Ok(uid)
+    })
+}
+
+pub(crate) fn get_field<T>(db: &DbHandle, id: EntityId, field: &str) -> Result<T>
 where
     T: TryFrom<DbValue>,
     T::Error: Debug,

@@ -39,7 +39,7 @@ impl Repository {
 
     pub fn add_game(&mut self, name: &str, deploy_kind: DeployKind) -> Result<Game> {
         Ok(Game::add(
-            self.db.clone(),
+            &self.db.clone(),
             self.cfg.clone(),
             name,
             deploy_kind,
