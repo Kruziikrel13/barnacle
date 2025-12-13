@@ -111,11 +111,14 @@ mod test {
 
         let mut game = repo.add_game("Morrowind", DeployKind::OpenMW).unwrap();
         let mut profile = game.add_profile("Test").unwrap();
-        let mod_ = game.add_mod("Super Duper Mod", None).unwrap();
 
-        profile.add_mod_entry(mod_).unwrap();
+        let mod1 = game.add_mod("Super Duper Mod", None).unwrap();
+        let mod2 = game.add_mod("Super Duper Mod: 2", None).unwrap();
 
-        assert_eq!(profile.mod_entries().unwrap().len(), 1);
+        profile.add_mod_entry(mod1).unwrap();
+        profile.add_mod_entry(mod2).unwrap();
+
+        assert_eq!(profile.mod_entries().unwrap().len(), 2);
     }
 
     #[test]

@@ -138,7 +138,7 @@ impl Profile {
 
     /// Add a new [`ModEntry`] to a [`Profile`] that points to the [`Mod`] given by ID.
     pub fn add_mod_entry(&mut self, mod_: Mod) -> Result<ModEntry> {
-        let db_id = self.id.db_id(&self.db)?;
+        let profile_db_id = self.id.db_id(&self.db)?;
         let mod_db_id = mod_.id.db_id(&self.db)?;
 
         let maybe_last_entry_db_id = self
@@ -171,7 +171,7 @@ impl Profile {
                     t.exec_mut(
                         QueryBuilder::insert()
                             .edges()
-                            .from(db_id)
+                            .from(profile_db_id)
                             .to(entry_db_id)
                             .query(),
                     )?;
@@ -194,6 +194,7 @@ impl Profile {
     }
 
     pub fn mod_entries(&self) -> Result<Vec<ModEntry>> {
+        let db_id = self.id.db_id(&self.db)?;
         let mod_entry_ids: Vec<DbId> = self
             .db
             .read()
@@ -201,11 +202,7 @@ impl Profile {
                 QueryBuilder::select()
                     .elements::<ModEntryModel>()
                     .search()
-                    .from(self.id.db_id(&self.db)?)
-                    .where_()
-                    .node()
-                    .and()
-                    .neighbor()
+                    .from(db_id)
                     .query(),
             )?
             .elements
@@ -220,12 +217,7 @@ impl Profile {
                 QueryBuilder::select()
                     .elements::<ModModel>()
                     .search()
-                    .from(self.id.db_id(&self.db)?)
-                    .where_()
-                    .node()
-                    .and()
-                    // Skip the Profile node and the first ModEntry node
-                    .distance(CountComparison::GreaterThan(2))
+                    .from(db_id)
                     .query(),
             )?
             .elements
