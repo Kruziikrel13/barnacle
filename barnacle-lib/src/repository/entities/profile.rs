@@ -4,7 +4,7 @@ use std::{
     path::PathBuf,
 };
 
-use agdb::{CountComparison, DbId, DbValue, QueryBuilder};
+use agdb::{DbId, DbValue, QueryBuilder};
 use heck::ToSnakeCase;
 use tracing::debug;
 
@@ -137,101 +137,12 @@ impl Profile {
     // Operations
 
     /// Add a new [`ModEntry`] to a [`Profile`] that points to the [`Mod`] given by ID.
-    pub fn add_mod_entry(&mut self, mod_: Mod) -> Result<ModEntry> {
-        let profile_db_id = self.id.db_id(&self.db)?;
-        let mod_db_id = mod_.id.db_id(&self.db)?;
-
-        let maybe_last_entry_db_id = self
-            .mod_entries()?
-            .last()
-            .map(|e| e.entry_id.db_id(&self.db).unwrap());
-
-        let model = ModEntryModel::new(next_uid(&self.db)?);
-        let entry_db_id = self.db.write().transaction_mut(|t| -> Result<DbId> {
-            let entry_db_id = t
-                .exec_mut(QueryBuilder::insert().element(&model).query())?
-                .elements
-                .first()
-                .expect("A successful query should not be empty")
-                .id;
-
-            match maybe_last_entry_db_id {
-                Some(last_entry_db_id) => {
-                    // Connect last entry in list to new entry
-                    t.exec_mut(
-                        QueryBuilder::insert()
-                            .edges()
-                            .from(last_entry_db_id)
-                            .to(entry_db_id)
-                            .query(),
-                    )?;
-                }
-                None => {
-                    // Connect profile node to new entry (first entry in the list)
-                    t.exec_mut(
-                        QueryBuilder::insert()
-                            .edges()
-                            .from(profile_db_id)
-                            .to(entry_db_id)
-                            .query(),
-                    )?;
-                }
-            }
-
-            // Connect new entry to target mod
-            t.exec_mut(
-                QueryBuilder::insert()
-                    .edges()
-                    .from(entry_db_id)
-                    .to(mod_db_id)
-                    .query(),
-            )?;
-
-            Ok(entry_db_id)
-        })?;
-
-        ModEntry::load(entry_db_id, mod_db_id, self.db.clone())
+    pub fn add_mod_entry(&self, mod_: Mod) -> Result<ModEntry> {
+        ModEntry::add(&self.db, self, mod_)
     }
 
     pub fn mod_entries(&self) -> Result<Vec<ModEntry>> {
-        let db_id = self.id.db_id(&self.db)?;
-        let mod_entry_ids: Vec<DbId> = self
-            .db
-            .read()
-            .exec(
-                QueryBuilder::select()
-                    .elements::<ModEntryModel>()
-                    .search()
-                    .from(db_id)
-                    .query(),
-            )?
-            .elements
-            .iter()
-            .map(|e| e.id)
-            .collect();
-
-        let mod_ids: Vec<DbId> = self
-            .db
-            .read()
-            .exec(
-                QueryBuilder::select()
-                    .elements::<ModModel>()
-                    .search()
-                    .from(db_id)
-                    .query(),
-            )?
-            .elements
-            .iter()
-            .map(|e| e.id)
-            .collect();
-
-        Ok(mod_entry_ids
-            .into_iter()
-            .zip(mod_ids)
-            .map(|(entry_db_id, mod_db_id)| {
-                ModEntry::load(entry_db_id, mod_db_id, self.db.clone()).unwrap()
-            })
-            .collect())
+        ModEntry::list(&self.db, self)
     }
 
     pub(crate) fn remove(self) -> Result<()> {

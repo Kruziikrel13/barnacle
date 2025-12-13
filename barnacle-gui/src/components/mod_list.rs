@@ -1,13 +1,18 @@
-use barnacle_lib::{Repository, repository::entities::ModEntry};
+use barnacle_gui::icons::icon;
+use barnacle_lib::{
+    Repository,
+    repository::{Profile, entities::ModEntry},
+};
 use iced::{
     Element, Length, Task,
-    widget::{checkbox, column, scrollable, table, text},
+    widget::{button, checkbox, column, scrollable, table, text},
 };
 
 #[derive(Debug, Clone)]
 pub enum Message {
     Loaded(Vec<ModEntry>),
     ModEntryToggled(ModEntry, bool),
+    ModEntryDeleted(ModEntry),
 }
 
 pub enum State {
@@ -47,7 +52,11 @@ impl ModList {
         match message {
             Message::Loaded(entries) => self.state = State::Loaded(entries),
             Message::ModEntryToggled(mut entry, state) => {
+                // TODO: This should be async
                 entry.set_enabled(state).unwrap();
+            }
+            Message::ModEntryDeleted(entry) => {
+                let current_profile = self.repo.clone().current_profile().unwrap();
             }
         }
 
@@ -61,12 +70,12 @@ impl ModList {
             State::Loaded(mod_entries) => {
                 let columns = [
                     table::column(text("Name"), |entry: ModEntry| text(entry.name().unwrap())),
-                    table::column(text("Notes"), |entry: ModEntry| {
-                        text(entry.notes().unwrap())
-                    }),
                     table::column(text("Status"), |entry: ModEntry| {
                         checkbox(entry.enabled().unwrap())
                             .on_toggle(move |state| Message::ModEntryToggled(entry.clone(), state))
+                    }),
+                    table::column(text("Actions"), |entry: ModEntry| {
+                        button(icon("delete")).on_press(Message::ModEntryDeleted(entry))
                     }),
                 ];
 
