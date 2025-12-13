@@ -5,7 +5,7 @@ use agdb::{DbId, DbValue, QueryBuilder, QueryId};
 use crate::repository::{
     Mod, Profile,
     db::{
-        DbHandle,
+        Db,
         models::{ModEntryModel, ModModel},
     },
     entities::{EntityId, Result, get_field, next_uid, set_field},
@@ -21,11 +21,11 @@ pub struct ModEntry {
     pub(crate) entry_id: EntityId,
     /// The ID of the ModModel the entry points to
     pub(crate) mod_id: EntityId,
-    pub(crate) db: DbHandle,
+    pub(crate) db: Db,
 }
 
 impl ModEntry {
-    pub(crate) fn load(entry_db_id: DbId, mod_db_id: DbId, db: DbHandle) -> Result<Self> {
+    pub(crate) fn load(entry_db_id: DbId, mod_db_id: DbId, db: Db) -> Result<Self> {
         Ok(Self {
             entry_id: EntityId::load(&db, entry_db_id)?,
             mod_id: EntityId::load(&db, mod_db_id)?,
@@ -49,7 +49,7 @@ impl ModEntry {
         self.get_entry_field("notes")
     }
 
-    pub(crate) fn add(db: &DbHandle, profile: &Profile, mod_: Mod) -> Result<Self> {
+    pub(crate) fn add(db: &Db, profile: &Profile, mod_: Mod) -> Result<Self> {
         let profile_id = profile.id.db_id(db)?;
         let mod_id = mod_.id.db_id(db)?;
 
@@ -175,7 +175,7 @@ impl ModEntry {
         Ok(())
     }
 
-    pub(crate) fn list(db: &DbHandle, profile: &Profile) -> Result<Vec<Self>> {
+    pub(crate) fn list(db: &Db, profile: &Profile) -> Result<Vec<Self>> {
         let db_id = profile.id.db_id(db)?;
         let mod_entry_ids: Vec<DbId> = db
             .read()

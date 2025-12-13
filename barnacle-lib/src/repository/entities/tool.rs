@@ -7,7 +7,7 @@ use agdb::DbValue;
 
 use crate::repository::{
     config::CoreConfigHandle,
-    db::DbHandle,
+    db::Db,
     entities::{EntityId, Result, get_field, set_field},
 };
 
@@ -18,12 +18,12 @@ use crate::repository::{
 #[derive(Debug, Clone)]
 pub struct Tool {
     id: EntityId,
-    db: DbHandle,
+    db: Db,
     cfg: CoreConfigHandle,
 }
 
 impl Tool {
-    pub(crate) fn load(id: EntityId, db: DbHandle, cfg: CoreConfigHandle) -> Result<Self> {
+    pub(crate) fn load(id: EntityId, db: Db, cfg: CoreConfigHandle) -> Result<Self> {
         Ok(Self { id, db, cfg })
     }
 

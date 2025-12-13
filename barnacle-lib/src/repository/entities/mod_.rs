@@ -10,7 +10,7 @@ use tracing::debug;
 
 use crate::repository::{
     CoreConfigHandle,
-    db::{DbHandle, models::GameModel},
+    db::{Db, models::GameModel},
     entities::{EntityId, Result, game::Game, get_field, set_field},
 };
 
@@ -21,12 +21,12 @@ use crate::repository::{
 #[derive(Debug, Clone)]
 pub struct Mod {
     pub(crate) id: EntityId,
-    pub(crate) db: DbHandle,
+    pub(crate) db: Db,
     pub(crate) cfg: CoreConfigHandle,
 }
 
 impl Mod {
-    pub(crate) fn load(db_id: DbId, db: DbHandle, cfg: CoreConfigHandle) -> Result<Self> {
+    pub(crate) fn load(db_id: DbId, db: Db, cfg: CoreConfigHandle) -> Result<Self> {
         let id = EntityId::load(&db, db_id)?;
         Ok(Self { id, db, cfg })
     }

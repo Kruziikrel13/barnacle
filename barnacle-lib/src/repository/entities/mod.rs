@@ -9,7 +9,7 @@ use std::fmt::Debug;
 use agdb::{DbId, DbValue, QueryBuilder};
 use thiserror::Error;
 
-use crate::repository::db::{DbHandle, Uid};
+use crate::repository::db::{Db, Uid};
 
 mod game;
 mod mod_;
@@ -42,7 +42,7 @@ pub(crate) struct EntityId {
 
 impl EntityId {
     /// Load an [`ElementId`] from an existing element.
-    pub fn load(db: &DbHandle, db_id: DbId) -> Result<Self> {
+    pub fn load(db: &Db, db_id: DbId) -> Result<Self> {
         let uid = db
             .read()
             .exec(QueryBuilder::select().values("uid").ids(db_id).query())?
@@ -59,7 +59,7 @@ impl EntityId {
     }
 
     /// Get the underlying [`DbId`]. This will check to make sure it isn't stale before returning.
-    pub fn db_id(&self, db: &DbHandle) -> Result<DbId> {
+    pub fn db_id(&self, db: &Db) -> Result<DbId> {
         let mut values = db
             .read()
             .exec(QueryBuilder::select().values("uid").ids(self.db_id).query())?
@@ -88,7 +88,7 @@ impl PartialEq for EntityId {
     }
 }
 
-pub(crate) fn next_uid(db: &DbHandle) -> Result<Uid> {
+pub(crate) fn next_uid(db: &Db) -> Result<Uid> {
     db.write().transaction_mut(|t| -> Result<u64> {
         let uid = t
             .exec(
@@ -117,7 +117,7 @@ pub(crate) fn next_uid(db: &DbHandle) -> Result<Uid> {
     })
 }
 
-pub(crate) fn get_field<T>(db: &DbHandle, id: EntityId, field: &str) -> Result<T>
+pub(crate) fn get_field<T>(db: &Db, id: EntityId, field: &str) -> Result<T>
 where
     T: TryFrom<DbValue>,
     T::Error: Debug,
@@ -137,7 +137,7 @@ where
     Ok(T::try_from(value).expect("conversion from a `DbValue` must succeed"))
 }
 
-pub(crate) fn set_field<T>(db: &mut DbHandle, id: EntityId, field: &str, value: T) -> Result<()>
+pub(crate) fn set_field<T>(db: &mut Db, id: EntityId, field: &str, value: T) -> Result<()>
 where
     T: Into<DbValue>,
 {

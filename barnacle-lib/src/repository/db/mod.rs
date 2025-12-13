@@ -15,12 +15,12 @@ pub(crate) mod models;
 pub(crate) type Uid = u64;
 
 #[derive(Debug, Clone, Deref)]
-pub(crate) struct DbHandle {
+pub(crate) struct Db {
     #[deref]
     db: Arc<RwLock<DbAny>>,
 }
 
-impl DbHandle {
+impl Db {
     pub fn new() -> Self {
         let path = state_dir().join("data.db");
         let path_str = path.to_str().unwrap();

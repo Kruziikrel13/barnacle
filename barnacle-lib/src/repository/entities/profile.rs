@@ -11,7 +11,7 @@ use tracing::debug;
 use crate::repository::{
     CoreConfigHandle,
     db::{
-        DbHandle,
+        Db,
         models::{GameModel, ProfileModel},
     },
     entities::{
@@ -26,12 +26,12 @@ use crate::repository::{
 #[derive(Debug, Clone)]
 pub struct Profile {
     pub(crate) id: EntityId,
-    pub(crate) db: DbHandle,
+    pub(crate) db: Db,
     pub(crate) cfg: CoreConfigHandle,
 }
 
 impl Profile {
-    pub(crate) fn load(db_id: DbId, db: DbHandle, cfg: CoreConfigHandle) -> Result<Self> {
+    pub(crate) fn load(db_id: DbId, db: Db, cfg: CoreConfigHandle) -> Result<Self> {
         let id = EntityId::load(&db, db_id)?;
         Ok(Self { id, db, cfg })
     }
@@ -67,7 +67,7 @@ impl Profile {
             .join(self.name()?.to_snake_case()))
     }
 
-    pub(crate) fn set_current(db: DbHandle, profile: &Profile) -> Result<()> {
+    pub(crate) fn set_current(db: Db, profile: &Profile) -> Result<()> {
         let db_id = profile.id.db_id(&db)?;
         db.write().transaction_mut(|t| {
             // Delete existing current_profile, if it exists
@@ -92,7 +92,7 @@ impl Profile {
         })
     }
 
-    pub(crate) fn current(db: DbHandle, cfg: CoreConfigHandle) -> Result<Profile> {
+    pub(crate) fn current(db: Db, cfg: CoreConfigHandle) -> Result<Profile> {
         let db_id = db
             .read()
             .exec(

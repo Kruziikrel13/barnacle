@@ -6,7 +6,7 @@ use crate::{
     Result,
     repository::{
         config::{CoreConfig, CoreConfigHandle},
-        db::DbHandle,
+        db::Db,
     },
 };
 
@@ -25,14 +25,14 @@ pub use entities::{Game, Mod, ModEntry, Profile, Tool};
 /// for reading and writing game data, mods, and profiles.
 #[derive(Clone, Debug)]
 pub struct Repository {
-    db: DbHandle,
+    db: Db,
     cfg: CoreConfigHandle,
 }
 
 impl Repository {
     pub fn new() -> Self {
         Self {
-            db: DbHandle::new(),
+            db: Db::new(),
             cfg: Arc::new(RwLock::new(CoreConfig::load())),
         }
     }
@@ -69,7 +69,7 @@ impl Repository {
     /// file.
     pub(crate) fn mock() -> Self {
         Self {
-            db: DbHandle::in_memory(),
+            db: Db::in_memory(),
             cfg: Arc::new(RwLock::new(CoreConfig::mock())),
         }
     }

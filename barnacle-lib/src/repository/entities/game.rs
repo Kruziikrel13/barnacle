@@ -14,7 +14,7 @@ use crate::{
     repository::{
         CoreConfigHandle,
         db::{
-            DbHandle,
+            Db,
             models::{DeployKind, GameModel, ModModel, ProfileModel},
         },
         entities::{EntityId, Result, get_field, mod_::Mod, next_uid, profile::Profile, set_field},
@@ -28,13 +28,13 @@ use crate::{
 #[derive(Debug, Clone)]
 pub struct Game {
     id: EntityId,
-    db: DbHandle,
+    db: Db,
     cfg: CoreConfigHandle,
 }
 
 impl Game {
     /// Load some existing [`Game`] from the database
-    pub(crate) fn load(db_id: DbId, db: DbHandle, cfg: CoreConfigHandle) -> Result<Self> {
+    pub(crate) fn load(db_id: DbId, db: Db, cfg: CoreConfigHandle) -> Result<Self> {
         let id = EntityId::load(&db, db_id)?;
         Ok(Self { id, db, cfg })
     }
@@ -231,7 +231,7 @@ impl Game {
 
     /// Insert a new [`Game`] into the database. The [`Game`] must have a unique name.
     pub(crate) fn add(
-        db: &DbHandle,
+        db: &Db,
         cfg: CoreConfigHandle,
         name: &str,
         deploy_kind: DeployKind,
@@ -275,7 +275,7 @@ impl Game {
         Ok(game)
     }
 
-    pub(crate) fn list(db: DbHandle, cfg: CoreConfigHandle) -> Result<Vec<Game>> {
+    pub(crate) fn list(db: Db, cfg: CoreConfigHandle) -> Result<Vec<Game>> {
         Ok(db
             .read()
             .exec(
