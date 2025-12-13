@@ -1,4 +1,8 @@
-use std::{fmt::Debug, fs, path::PathBuf};
+use std::{
+    fmt::{self, Debug, Display, Formatter},
+    fs,
+    path::PathBuf,
+};
 
 use agdb::{CountComparison, DbId, DbValue, QueryBuilder};
 use heck::ToSnakeCase;
@@ -262,6 +266,16 @@ impl Profile {
         T: Into<DbValue>,
     {
         set_field(&mut self.db, self.id, field, value)
+    }
+}
+
+impl Display for Profile {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{}",
+            self.name().unwrap_or_else(|_| "<invalid game name>".into())
+        )
     }
 }
 

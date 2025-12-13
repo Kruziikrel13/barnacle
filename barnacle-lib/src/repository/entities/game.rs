@@ -1,5 +1,5 @@
 use std::{
-    fmt::Debug,
+    fmt::{self, Debug, Display, Formatter},
     fs::{self, File},
     path::{Path, PathBuf},
 };
@@ -282,6 +282,16 @@ impl Game {
         T: Into<DbValue>,
     {
         set_field(&mut self.db, self.id, field, value)
+    }
+}
+
+impl Display for Game {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{}",
+            self.name().unwrap_or_else(|_| "<invalid game name>".into())
+        )
     }
 }
 
