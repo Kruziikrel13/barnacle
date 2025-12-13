@@ -20,7 +20,7 @@ pub struct Tool {
 }
 
 impl Tool {
-    pub(crate) fn from_id(id: EntityId, db: DbHandle, cfg: CoreConfigHandle) -> Result<Self> {
+    pub(crate) fn load(id: EntityId, db: DbHandle, cfg: CoreConfigHandle) -> Result<Self> {
         Ok(Self { id, db, cfg })
     }
 

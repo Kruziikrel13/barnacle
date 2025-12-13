@@ -61,6 +61,7 @@ impl Profile {
     }
 
     pub(crate) fn set_current(db: DbHandle, profile: &Profile) -> Result<()> {
+        let db_id = profile.id.db_id(&db)?;
         db.write().transaction_mut(|t| {
             // Delete existing current_profile, if it exists
             t.exec_mut(
@@ -76,7 +77,7 @@ impl Profile {
                 QueryBuilder::insert()
                     .edges()
                     .from("current_profile")
-                    .to(profile.id.db_id(&db)?)
+                    .to(db_id)
                     .query(),
             )?;
 
@@ -274,5 +275,16 @@ mod test {
 
         let mut game = repo.add_game("Morrowind", DeployKind::OpenMW).unwrap();
         game.add_profile("Test").unwrap();
+    }
+
+    #[test]
+    fn test_set_current() {
+        let mut repo = Repository::mock();
+
+        let mut game = repo.add_game("Morrowind", DeployKind::OpenMW).unwrap();
+        let profile = game.add_profile("Test").unwrap();
+
+        repo.set_current_profile(&profile).unwrap();
+        repo.current_profile().unwrap();
     }
 }
