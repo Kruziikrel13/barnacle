@@ -12,7 +12,7 @@ use crate::fs::{config_dir, data_dir};
 const CURRENT_CONFIG_VERSION: u16 = 1;
 const FILE_NAME: &str = "core.toml";
 
-pub(crate) type CoreConfigHandle = Arc<RwLock<CoreConfig>>;
+pub(crate) type Cfg = Arc<RwLock<CoreConfig>>;
 
 /// The backend's core configuration, serialized to TOML.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -60,7 +60,7 @@ impl CoreConfig {
         Self {
             version: CURRENT_CONFIG_VERSION,
             library_dir: tempdir()
-                .expect("Temporary directory should exist")
+                .expect("temporary directory should exist")
                 .path()
                 .to_path_buf(),
         }

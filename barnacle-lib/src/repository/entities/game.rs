@@ -12,7 +12,7 @@ use tracing::debug;
 use crate::{
     fs::{Permissions, change_dir_permissions},
     repository::{
-        CoreConfigHandle,
+        Cfg,
         db::{
             Db,
             models::{DeployKind, GameModel, ModModel, ProfileModel},
@@ -29,12 +29,12 @@ use crate::{
 pub struct Game {
     id: EntityId,
     db: Db,
-    cfg: CoreConfigHandle,
+    cfg: Cfg,
 }
 
 impl Game {
     /// Load some existing [`Game`] from the database
-    pub(crate) fn load(db_id: DbId, db: Db, cfg: CoreConfigHandle) -> Result<Self> {
+    pub(crate) fn load(db_id: DbId, db: Db, cfg: Cfg) -> Result<Self> {
         let id = EntityId::load(&db, db_id)?;
         Ok(Self { id, db, cfg })
     }
@@ -230,12 +230,7 @@ impl Game {
     }
 
     /// Insert a new [`Game`] into the database. The [`Game`] must have a unique name.
-    pub(crate) fn add(
-        db: &Db,
-        cfg: CoreConfigHandle,
-        name: &str,
-        deploy_kind: DeployKind,
-    ) -> Result<Self> {
+    pub(crate) fn add(db: &Db, cfg: Cfg, name: &str, deploy_kind: DeployKind) -> Result<Self> {
         if Game::list(db.clone(), cfg.clone())?
             .iter()
             .any(|g| g.name().unwrap() == name)
@@ -275,7 +270,7 @@ impl Game {
         Ok(game)
     }
 
-    pub(crate) fn list(db: Db, cfg: CoreConfigHandle) -> Result<Vec<Game>> {
+    pub(crate) fn list(db: Db, cfg: Cfg) -> Result<Vec<Game>> {
         Ok(db
             .read()
             .exec(

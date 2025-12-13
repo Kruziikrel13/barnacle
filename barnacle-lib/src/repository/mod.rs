@@ -5,7 +5,7 @@ use parking_lot::RwLock;
 use crate::{
     Result,
     repository::{
-        config::{CoreConfig, CoreConfigHandle},
+        config::{Cfg, CoreConfig},
         db::Db,
     },
 };
@@ -26,7 +26,7 @@ pub use entities::{Game, Mod, ModEntry, Profile, Tool};
 #[derive(Clone, Debug)]
 pub struct Repository {
     db: Db,
-    cfg: CoreConfigHandle,
+    cfg: Cfg,
 }
 
 impl Repository {

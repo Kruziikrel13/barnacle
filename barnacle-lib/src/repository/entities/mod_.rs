@@ -9,7 +9,7 @@ use heck::ToSnakeCase;
 use tracing::debug;
 
 use crate::repository::{
-    CoreConfigHandle,
+    Cfg,
     db::{Db, models::GameModel},
     entities::{EntityId, Result, game::Game, get_field, set_field},
 };
@@ -22,11 +22,11 @@ use crate::repository::{
 pub struct Mod {
     pub(crate) id: EntityId,
     pub(crate) db: Db,
-    pub(crate) cfg: CoreConfigHandle,
+    pub(crate) cfg: Cfg,
 }
 
 impl Mod {
-    pub(crate) fn load(db_id: DbId, db: Db, cfg: CoreConfigHandle) -> Result<Self> {
+    pub(crate) fn load(db_id: DbId, db: Db, cfg: Cfg) -> Result<Self> {
         let id = EntityId::load(&db, db_id)?;
         Ok(Self { id, db, cfg })
     }

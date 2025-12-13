@@ -9,7 +9,7 @@ use heck::ToSnakeCase;
 use tracing::debug;
 
 use crate::repository::{
-    CoreConfigHandle,
+    Cfg,
     db::{
         Db,
         models::{GameModel, ProfileModel},
@@ -27,11 +27,11 @@ use crate::repository::{
 pub struct Profile {
     pub(crate) id: EntityId,
     pub(crate) db: Db,
-    pub(crate) cfg: CoreConfigHandle,
+    pub(crate) cfg: Cfg,
 }
 
 impl Profile {
-    pub(crate) fn load(db_id: DbId, db: Db, cfg: CoreConfigHandle) -> Result<Self> {
+    pub(crate) fn load(db_id: DbId, db: Db, cfg: Cfg) -> Result<Self> {
         let id = EntityId::load(&db, db_id)?;
         Ok(Self { id, db, cfg })
     }
@@ -92,7 +92,7 @@ impl Profile {
         })
     }
 
-    pub(crate) fn current(db: Db, cfg: CoreConfigHandle) -> Result<Profile> {
+    pub(crate) fn current(db: Db, cfg: Cfg) -> Result<Profile> {
         let db_id = db
             .read()
             .exec(
