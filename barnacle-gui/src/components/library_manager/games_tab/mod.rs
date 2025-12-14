@@ -1,4 +1,4 @@
-use barnacle_gui::icons::icon;
+use crate::icons::icon;
 use barnacle_lib::{Repository, repository::Game};
 use iced::{
     Element, Length, Task,

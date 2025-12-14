@@ -1,23 +1,28 @@
 use std::sync::Arc;
 
-use barnacle_gui::{config::GuiConfig, icons::icon, modal};
 use barnacle_lib::Repository;
 use iced::{
-    Element,
-    Length::Fill,
+    Color, Element,
+    Length::{self, Fill},
     Task, Theme, application,
-    widget::{button, column, row, space, text},
+    widget::{button, center, column, container, mouse_area, opaque, row, space, stack, text},
 };
 use parking_lot::RwLock;
 use tracing::Level;
 use tracing_subscriber::{EnvFilter, FmtSubscriber};
 
-use crate::components::{
-    library_manager::{self, LibraryManager},
-    mod_list::{self, ModList},
+use crate::{
+    components::{
+        library_manager::{self, LibraryManager},
+        mod_list::{self, ModList},
+    },
+    config::GuiConfig,
+    icons::icon,
 };
 
 pub mod components;
+pub mod config;
+pub mod icons;
 
 fn main() -> iced::Result {
     application(App::new, App::update, App::view)
@@ -154,4 +159,38 @@ impl App {
     pub fn theme(&self) -> Theme {
         self.theme.clone()
     }
+}
+
+pub fn modal<'a, Message>(
+    base: impl Into<Element<'a, Message>>,
+    content: impl Into<Element<'a, Message>>,
+    on_click_outside: Option<Message>,
+) -> Element<'a, Message>
+where
+    Message: Clone + 'a,
+{
+    let mouse_area = mouse_area(center(opaque(content)).style(|_theme| {
+        container::Style {
+            background: Some(
+                Color {
+                    a: 0.8,
+                    ..Color::BLACK
+                }
+                .into(),
+            ),
+            ..container::Style::default()
+        }
+    }));
+
+    stack![
+        base.into(),
+        opaque(if let Some(msg) = on_click_outside {
+            mouse_area.on_press(msg)
+        } else {
+            mouse_area
+        })
+    ]
+    .width(Length::Fill)
+    .height(Length::Fill)
+    .into()
 }

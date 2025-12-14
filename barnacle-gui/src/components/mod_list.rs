@@ -1,11 +1,11 @@
-use barnacle_gui::{config::Cfg, icons::icon};
+use crate::{config::Cfg, icons::icon};
 use barnacle_lib::{
     Repository,
     repository::{Profile, entities::ModEntry},
 };
 use iced::{
-    Element, Length, Task,
-    widget::{Svg, button, checkbox, column, row, scrollable, space, table, text},
+    Element, Length, Point, Task,
+    widget::{Svg, button, checkbox, column, mouse_area, row, scrollable, space, table, text},
 };
 use serde::{Deserialize, Serialize};
 
@@ -14,6 +14,8 @@ pub enum Message {
     Loaded(Vec<ModEntry>),
     SortChanged(SortColumn),
     ModEntryToggled(ModEntry, bool),
+    ModEntryHovered(ModEntry, Point),
+    ModEntryRightClicked,
     ModEntryDeleted(ModEntry),
 }
 
@@ -28,6 +30,7 @@ pub struct ModList {
     cfg: Cfg,
     state: State,
     sort: SortState,
+    context_menu: ContextMenuState,
 }
 
 impl ModList {
@@ -49,6 +52,11 @@ impl ModList {
                 cfg,
                 state: State::Loading,
                 sort: SortState::default(),
+                context_menu: ContextMenuState {
+                    visible: false,
+                    entry: None,
+                    position: None,
+                },
             },
             task,
         )
@@ -62,9 +70,17 @@ impl ModList {
                 // TODO: This should be async
                 entry.set_enabled(state).unwrap();
             }
+            Message::ModEntryHovered(entry, position) => {
+                self.context_menu.entry = Some(entry);
+                self.context_menu.position = Some(position);
+            }
+            Message::ModEntryRightClicked => {
+                self.context_menu.visible = true;
+            }
             Message::ModEntryDeleted(entry) => {
-                let current_profile = self.repo.clone().current_profile().unwrap();
-                current_profile.remove_mod_entry(entry).unwrap();
+                println!("Deletion of {:?}", entry);
+                // let current_profile = self.repo.clone().current_profile().unwrap();
+                // current_profile.remove_mod_entry(entry).unwrap();
             }
         }
 
@@ -73,13 +89,17 @@ impl ModList {
 
     pub fn view(&self) -> Element<'_, Message> {
         match &self.state {
-            State::Loading => column![text("Loading mods...")],
-            State::Error(e) => column![text(e)],
+            State::Loading => column![text("Loading mods...")].into(),
+            State::Error(e) => column![text(e)].into(),
             State::Loaded(mod_entries) => {
                 let columns = [
                     table::column(
                         column_header("Name", &self.sort, SortColumn::Name),
-                        |entry: ModEntry| text(entry.name().unwrap()),
+                        |entry: ModEntry| {
+                            mouse_area(text(entry.name().unwrap()))
+                                .on_right_press(Message::ModEntryRightClicked)
+                                .on_move(move |p| Message::ModEntryHovered(entry.clone(), p))
+                        },
                     ),
                     table::column(text("Status"), |entry: ModEntry| {
                         checkbox(entry.enabled().unwrap())
@@ -87,12 +107,25 @@ impl ModList {
                     }),
                 ];
 
-                column![scrollable(
+                let content = column![scrollable(
                     table(columns, mod_entries.clone()).width(Length::Fill)
-                )]
+                )];
+
+                content.into()
+
+                // if self.context_menu.visible {
+                //     ContextMenu::new(content, || {
+                //         column![button("Delete").on_press(Message::ModEntryDeleted(
+                //             self.context_menu.entry.clone().unwrap()
+                //         ))]
+                //         .into()
+                //     })
+                //     .into()
+                // } else {
+                //     content.into()
+                // }
             }
         }
-        .into()
     }
 }
 
@@ -122,6 +155,13 @@ fn update_mods_list(profile: &Profile) -> Task<Message> {
     )
 }
 
+#[derive(Debug, Clone)]
+pub struct ContextMenuState {
+    visible: bool,
+    entry: Option<ModEntry>,
+    position: Option<Point>,
+}
+
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum SortDirection {
     Ascending,
@@ -131,7 +171,6 @@ pub enum SortDirection {
 #[derive(Debug, Clone, PartialEq, Eq, Copy, Serialize, Deserialize)]
 pub enum SortColumn {
     Name,
-    // Add more columns here later
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
