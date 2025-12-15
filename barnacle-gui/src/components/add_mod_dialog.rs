@@ -19,13 +19,13 @@ pub enum Message {
     AddButtonPressed,
 }
 
-/// Actions handed to parent widget to be performed
+/// Event used for communicating with the parent component
 #[derive(Debug)]
-pub enum Action {
+pub enum Event {
     None,
     Task(Task<Message>),
-    Cancel,
-    AddMod,
+    Canceled,
+    ModAdded,
 }
 
 #[derive(Debug, Clone)]
@@ -52,17 +52,22 @@ impl AddModDialog {
         )
     }
 
-    pub fn update(&mut self, message: Message) -> Action {
+    fn clear(&mut self) {
+        self.name.clear();
+        self.path.clear();
+    }
+
+    pub fn update(&mut self, message: Message) -> Event {
         match message {
             Message::NameChanged(name) => {
                 self.name = name;
-                Action::None
+                Event::None
             }
             Message::PathChanged(path) => {
                 self.path = path;
-                Action::None
+                Event::None
             }
-            Message::PickPath(kind) => Action::Task(Task::perform(
+            Message::PickPath(kind) => Event::Task(Task::perform(
                 async move {
                     let picker = AsyncFileDialog::new().set_directory(env::home_dir().unwrap());
 
@@ -78,10 +83,13 @@ impl AddModDialog {
                 if let Some(path) = path {
                     self.path = path;
                 }
-                Action::None
+                Event::None
             }
-            Message::CancelButtonPressed => Action::Cancel,
-            Message::AddButtonPressed => Action::AddMod,
+            Message::CancelButtonPressed => {
+                self.clear();
+                Event::Canceled
+            }
+            Message::AddButtonPressed => Event::ModAdded,
         }
     }
 

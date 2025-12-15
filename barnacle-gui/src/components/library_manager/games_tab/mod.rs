@@ -28,6 +28,13 @@ pub enum Message {
     EditDialog(edit_dialog::Message),
 }
 
+#[derive(Debug)]
+pub enum Event {
+    None,
+    Task(Task<Message>),
+    GameDeleted,
+}
+
 pub enum State {
     Loading,
     Error(String),
@@ -62,25 +69,28 @@ impl Tab {
         )
     }
 
-    pub fn update(&mut self, message: Message) -> Task<Message> {
+    pub fn update(&mut self, message: Message) -> Event {
         match message {
             // State
             Message::Loaded(games) => {
                 self.state = State::Loaded(games);
-                Task::none()
+                Event::None
             }
-            Message::GameDeleted => update_games_list(&self.repo),
+            Message::GameDeleted => {
+                Event::Task(update_games_list(&self.repo))
+                // Event::GameDeleted
+            }
             // Components
             Message::ShowNewDialog => {
                 self.show_new_dialog = true;
-                Task::none()
+                Event::None
             }
             Message::ShowEditDialog(game) => {
                 self.edit_dialog.load(game);
                 self.show_edit_dialog = true;
-                Task::none()
+                Event::None
             }
-            Message::DeleteButtonPressed(game) => Task::perform(
+            Message::DeleteButtonPressed(game) => Event::Task(Task::perform(
                 {
                     // So we don't try to query deleted games
                     self.state = State::Loading;
@@ -89,30 +99,30 @@ impl Tab {
                     async move { repo.remove_game(game).unwrap() }
                 },
                 |_| Message::GameDeleted,
-            ),
+            )),
             Message::NewDialog(msg) => match msg {
                 new_dialog::Message::CancelPressed => {
                     self.show_new_dialog = false;
                     self.new_dialog.clear();
-                    Task::none()
+                    Event::None
                 }
                 new_dialog::Message::GameCreated => {
                     self.state = State::Loading;
                     self.show_new_dialog = false;
-                    update_games_list(&self.repo)
+                    Event::Task(update_games_list(&self.repo))
                 }
-                _ => self.new_dialog.update(msg).map(Message::NewDialog),
+                _ => Event::Task(self.new_dialog.update(msg).map(Message::NewDialog)),
             },
             Message::EditDialog(msg) => match msg {
                 edit_dialog::Message::CancelPressed => {
                     self.show_edit_dialog = false;
-                    Task::none()
+                    Event::None
                 }
                 edit_dialog::Message::GameEdited => {
                     self.show_edit_dialog = false;
-                    Task::none()
+                    Event::None
                 }
-                _ => self.edit_dialog.update(msg).map(Message::EditDialog),
+                _ => Event::Task(self.edit_dialog.update(msg).map(Message::EditDialog)),
             },
         }
     }

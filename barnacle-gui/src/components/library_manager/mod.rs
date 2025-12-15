@@ -19,11 +19,12 @@ pub enum Message {
     ProfilesTab(profiles_tab::Message),
 }
 
+/// Event used for communicating with the parent component
 #[derive(Debug)]
-pub enum Action {
+pub enum Event {
     None,
     Task(Task<Message>),
-    Close,
+    Closed,
 }
 
 #[derive(Debug, Default, Clone, Eq, PartialEq)]
@@ -64,19 +65,24 @@ impl LibraryManager {
         )
     }
 
-    pub fn update(&mut self, message: Message) -> Action {
+    pub fn update(&mut self, message: Message) -> Event {
         match message {
             Message::TabSelected(id) => {
                 self.active_tab = id;
-                Action::None
+                Event::None
             }
-            Message::CloseButtonSelected => Action::Close,
+            Message::CloseButtonSelected => Event::Closed,
             // TODO: Profiles tab game selection combo box doesn't get updated about newly created games
-            Message::GamesTab(msg) => {
-                Action::Task(self.games_tab.update(msg).map(Message::GamesTab))
-            }
+            Message::GamesTab(message) => match self.games_tab.update(message) {
+                games_tab::Event::None => Event::None,
+                games_tab::Event::Task(task) => Event::Task(task.map(Message::GamesTab)),
+                games_tab::Event::GameDeleted => {
+                    println!("Game deleted");
+                    Event::None
+                }
+            },
             Message::ProfilesTab(msg) => {
-                Action::Task(self.profiles_tab.update(msg).map(Message::ProfilesTab))
+                Event::Task(self.profiles_tab.update(msg).map(Message::ProfilesTab))
             }
         }
     }

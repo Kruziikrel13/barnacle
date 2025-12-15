@@ -38,7 +38,7 @@ enum Message {
     ModList(mod_list::Message),
     LibraryManager(library_manager::Message),
     AddModButtonPressed,
-    ShowLibraryManager,
+    LibraryManagerButtonPressed,
 }
 
 struct App {
@@ -112,23 +112,23 @@ impl App {
         match message {
             // Redirect messages to relevant child components
             Message::AddModDialog(message) => match self.add_mod_dialog.update(message) {
-                add_mod_dialog::Action::None => Task::none(),
-                add_mod_dialog::Action::Task(task) => task.map(Message::AddModDialog),
-                add_mod_dialog::Action::Cancel => {
+                add_mod_dialog::Event::None => Task::none(),
+                add_mod_dialog::Event::Task(task) => task.map(Message::AddModDialog),
+                add_mod_dialog::Event::Canceled => {
                     self.show_add_mod_dialog = false;
                     Task::none()
                 }
-                add_mod_dialog::Action::AddMod => {
-                    println!("Mod added");
+                add_mod_dialog::Event::ModAdded => {
                     self.show_add_mod_dialog = false;
+                    println!("Mod added");
                     Task::none()
                 }
             },
             Message::ModList(msg) => self.mod_list.update(msg).map(Message::ModList),
             Message::LibraryManager(message) => match self.library_manager.update(message) {
-                library_manager::Action::None => Task::none(),
-                library_manager::Action::Task(task) => task.map(Message::LibraryManager),
-                library_manager::Action::Close => {
+                library_manager::Event::None => Task::none(),
+                library_manager::Event::Task(task) => task.map(Message::LibraryManager),
+                library_manager::Event::Closed => {
                     self.show_library_manager = false;
                     Task::none()
                 }
@@ -137,7 +137,7 @@ impl App {
                 self.show_add_mod_dialog = true;
                 Task::none()
             }
-            Message::ShowLibraryManager => {
+            Message::LibraryManagerButtonPressed => {
                 self.show_library_manager = true;
                 Task::none()
             }
@@ -153,7 +153,7 @@ impl App {
                 button(icon("play")),
                 text("Profile:"),
                 space::horizontal(),
-                button(icon("library")).on_press(Message::ShowLibraryManager),
+                button(icon("library")).on_press(Message::LibraryManagerButtonPressed),
                 button(icon("settings")),
                 button(icon("notifications"))
             ],
