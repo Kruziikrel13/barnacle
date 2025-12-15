@@ -46,8 +46,6 @@ impl LibraryManager {
     pub fn new(repo: Repository) -> (Self, Task<Message>) {
         let (games_tab, games_task) = games_tab::Tab::new(repo.clone());
         let (profiles_tab, profiles_task) = profiles_tab::Tab::new(repo.clone());
-        // let (mods_tab, mods_task) = ModsTab::new(repo.clone());
-        // let (tools_tab, tools_task) = ToolsTab::new(repo.clone());
 
         let tasks = Task::batch([
             games_task.map(Message::GamesTab),
