@@ -119,6 +119,16 @@ impl ModList {
             }
         }
     }
+
+    pub fn update_mods_list(&self) -> Task<Message> {
+        Task::perform(
+            {
+                let repo = self.repo.clone();
+                async move { repo.current_profile().unwrap().mod_entries().unwrap() }
+            },
+            Message::Loaded,
+        )
+    }
 }
 
 fn column_header<'a>(
@@ -134,14 +144,4 @@ fn column_header<'a>(
     .style(button::subtle)
     .on_press(Message::SortChanged(column))
     .into()
-}
-
-fn update_mods_list(profile: &Profile) -> Task<Message> {
-    Task::perform(
-        {
-            let profile = profile.clone();
-            async move { profile.mod_entries().unwrap() }
-        },
-        Message::Loaded,
-    )
 }

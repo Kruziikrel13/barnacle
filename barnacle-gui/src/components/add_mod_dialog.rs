@@ -25,7 +25,7 @@ pub enum Event {
     None,
     Task(Task<Message>),
     Canceled,
-    ModAdded,
+    ModAdded { name: String, path: String },
 }
 
 #[derive(Debug, Clone)]
@@ -89,7 +89,10 @@ impl AddModDialog {
                 self.clear();
                 Event::Canceled
             }
-            Message::AddButtonPressed => Event::ModAdded,
+            Message::AddButtonPressed => Event::ModAdded {
+                name: self.name.clone(),
+                path: self.path.clone(),
+            },
         }
     }
 

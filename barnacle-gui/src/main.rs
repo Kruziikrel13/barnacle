@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{path::PathBuf, sync::Arc};
 
 use barnacle_lib::Repository;
 use iced::{
@@ -39,9 +39,11 @@ enum Message {
     LibraryManager(library_manager::Message),
     AddModButtonPressed,
     LibraryManagerButtonPressed,
+    ModAdded,
 }
 
 struct App {
+    repo: Repository,
     title: String,
     theme: Theme,
     // Components
@@ -92,6 +94,7 @@ impl App {
 
         (
             Self {
+                repo,
                 title: "Barnacle".into(),
                 theme,
                 add_mod_dialog,
@@ -118,13 +121,22 @@ impl App {
                     self.show_add_mod_dialog = false;
                     Task::none()
                 }
-                add_mod_dialog::Event::ModAdded => {
+                add_mod_dialog::Event::ModAdded { name, path } => {
                     self.show_add_mod_dialog = false;
-                    println!("Mod added");
-                    Task::none()
+                    let repo = self.repo.clone();
+                    Task::perform(
+                        async move {
+                            let profile = repo.current_profile().unwrap();
+                            let game = profile.parent().unwrap();
+
+                            let mod_ = game.add_mod(&name, Some(&PathBuf::from(path))).unwrap();
+                            profile.add_mod_entry(mod_).unwrap();
+                        },
+                        |_| Message::ModAdded,
+                    )
                 }
             },
-            Message::ModList(msg) => self.mod_list.update(msg).map(Message::ModList),
+            Message::ModList(message) => self.mod_list.update(message).map(Message::ModList),
             Message::LibraryManager(message) => match self.library_manager.update(message) {
                 library_manager::Event::None => Task::none(),
                 library_manager::Event::Task(task) => task.map(Message::LibraryManager),
@@ -141,6 +153,7 @@ impl App {
                 self.show_library_manager = true;
                 Task::none()
             }
+            Message::ModAdded => self.mod_list.update_mods_list().map(Message::ModList),
         }
     }
 
