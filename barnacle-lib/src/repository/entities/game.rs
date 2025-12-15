@@ -1,24 +1,20 @@
 use std::{
     fmt::{self, Debug, Display, Formatter},
-    fs::{self, File},
+    fs,
     path::{Path, PathBuf},
 };
 
 use agdb::{DbId, DbValue, QueryBuilder, QueryId};
-use compress_tools::{Ownership, uncompress_archive};
 use heck::ToSnakeCase;
 use tracing::debug;
 
-use crate::{
-    fs::{Permissions, change_dir_permissions},
-    repository::{
-        Cfg,
-        db::{
-            Db,
-            models::{DeployKind, GameModel, ModModel, ProfileModel},
-        },
-        entities::{EntityId, Result, get_field, mod_::Mod, next_uid, profile::Profile, set_field},
+use crate::repository::{
+    Cfg,
+    db::{
+        Db,
+        models::{DeployKind, GameModel, ModModel, ProfileModel},
     },
+    entities::{EntityId, Result, Uid, get_field, mod_::Mod, profile::Profile, set_field},
 };
 
 /// Represents a game entity in the Barnacle system.
@@ -100,7 +96,7 @@ impl Game {
     }
 
     pub fn add_profile(&mut self, name: &str) -> Result<Profile> {
-        let model = ProfileModel::new(next_uid(&self.db)?, name);
+        let model = ProfileModel::new(Uid::new(&self.db)?, name);
         if self
             .profiles()?
             .iter()
@@ -204,7 +200,7 @@ impl Game {
             panic!("UniqueViolation");
         }
 
-        let model = GameModel::new(next_uid(db)?, name, deploy_kind);
+        let model = GameModel::new(Uid::new(db)?, name, deploy_kind);
         let db_id = db.write().transaction_mut(|t| -> Result<DbId> {
             let game_id = t
                 .exec_mut(QueryBuilder::insert().element(model).query())

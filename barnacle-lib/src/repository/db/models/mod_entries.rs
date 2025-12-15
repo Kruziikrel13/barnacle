@@ -1,11 +1,11 @@
 use agdb::{DbElement, DbId};
 
-use crate::repository::db::Uid;
+use crate::repository::entities::Uid;
 
 #[derive(Debug, Clone, DbElement, PartialEq, PartialOrd)]
 pub(crate) struct ModEntryModel {
     db_id: Option<DbId>,
-    uid: Uid,
+    uid: u64,
     enabled: bool,
     notes: String,
 }
@@ -14,7 +14,7 @@ impl ModEntryModel {
     pub fn new(uid: Uid) -> Self {
         Self {
             db_id: None,
-            uid,
+            uid: uid.0,
             enabled: true,
             notes: "".into(),
         }

@@ -11,9 +11,6 @@ use crate::{
 
 pub(crate) mod models;
 
-/// A unique ID representing an entity in the database
-pub(crate) type Uid = u64;
-
 #[derive(Debug, Clone, Deref)]
 pub(crate) struct Db {
     #[deref]

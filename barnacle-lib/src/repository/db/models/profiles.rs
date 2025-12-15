@@ -1,11 +1,11 @@
 use agdb::{DbElement, DbId};
 
-use crate::repository::db::Uid;
+use crate::repository::entities::Uid;
 
 #[derive(Debug, Clone, DbElement, PartialEq, PartialOrd)]
 pub(crate) struct ProfileModel {
     pub(crate) db_id: Option<DbId>,
-    pub(crate) uid: Uid,
+    pub(crate) uid: u64,
     pub(crate) name: String,
 }
 
@@ -13,7 +13,7 @@ impl ProfileModel {
     pub fn new(uid: Uid, name: &str) -> Self {
         Self {
             db_id: None,
-            uid,
+            uid: uid.0,
             name: name.to_string(),
         }
     }

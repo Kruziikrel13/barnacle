@@ -9,7 +9,7 @@ use std::fmt::Debug;
 use agdb::{DbId, DbValue, QueryBuilder};
 use thiserror::Error;
 
-use crate::repository::db::{Db, Uid};
+use crate::repository::db::Db;
 
 mod game;
 mod mod_;
@@ -43,19 +43,10 @@ pub(crate) struct EntityId {
 impl EntityId {
     /// Load an [`ElementId`] from an existing element.
     pub fn load(db: &Db, db_id: DbId) -> Result<Self> {
-        let uid = db
-            .read()
-            .exec(QueryBuilder::select().values("uid").ids(db_id).query())?
-            .elements
-            .pop()
-            .expect("successful queries should not be empty")
-            .values
-            .pop()
-            .expect("successful queries should not be empty")
-            .value
-            .to_u64()?;
-
-        Ok(Self { db_id, uid })
+        Ok(Self {
+            db_id,
+            uid: Uid::load(db, db_id)?,
+        })
     }
 
     /// Get the underlying [`DbId`]. This will check to make sure it isn't stale before returning.
@@ -74,7 +65,7 @@ impl EntityId {
             .value
             .to_u64()?;
 
-        if uid != self.uid {
+        if uid != self.uid.0 {
             Err(Error::StaleEntityId)
         } else {
             Ok(self.db_id)
@@ -84,37 +75,56 @@ impl EntityId {
 
 impl PartialEq for EntityId {
     fn eq(&self, other: &Self) -> bool {
-        self.uid == other.uid
+        self.uid.0 == other.uid.0
     }
 }
 
-pub(crate) fn next_uid(db: &Db) -> Result<Uid> {
-    db.write().transaction_mut(|t| -> Result<u64> {
-        let uid = t
-            .exec(
-                QueryBuilder::select()
-                    .values("next_uid")
+#[derive(Debug, Clone, Copy)]
+pub struct Uid(pub u64);
+
+impl Uid {
+    fn new(db: &Db) -> Result<Self> {
+        db.write().transaction_mut(|t| {
+            let uid = t
+                .exec(
+                    QueryBuilder::select()
+                        .values("next_uid")
+                        .ids("next_uid")
+                        .query(),
+                )?
+                .elements
+                .pop()
+                .unwrap()
+                .values
+                .pop()
+                .unwrap()
+                .value
+                .to_u64()
+                .unwrap();
+            t.exec_mut(
+                QueryBuilder::insert()
+                    .values([[("next_uid", uid + 1).into()]])
                     .ids("next_uid")
                     .query(),
-            )?
+            )?;
+
+            Ok(Uid(uid))
+        })
+    }
+
+    fn load(db: &Db, db_id: DbId) -> Result<Self> {
+        Ok(Uid(db
+            .read()
+            .exec(QueryBuilder::select().values("uid").ids(db_id).query())?
             .elements
             .pop()
-            .unwrap()
+            .expect("successful queries should not be empty")
             .values
             .pop()
-            .unwrap()
+            .expect("successful queries should not be empty")
             .value
-            .to_u64()
-            .unwrap();
-        t.exec_mut(
-            QueryBuilder::insert()
-                .values([[("next_uid", uid + 1).into()]])
-                .ids("next_uid")
-                .query(),
-        )?;
-
-        Ok(uid)
-    })
+            .to_u64()?))
+    }
 }
 
 pub(crate) fn get_field<T>(db: &Db, id: EntityId, field: &str) -> Result<T>

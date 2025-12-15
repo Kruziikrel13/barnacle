@@ -17,7 +17,7 @@ use crate::{
             Db,
             models::{GameModel, ModModel},
         },
-        entities::{EntityId, Result, game::Game, get_field, next_uid, set_field},
+        entities::{EntityId, Result, Uid, game::Game, get_field, set_field},
     },
 };
 
@@ -81,7 +81,7 @@ impl Mod {
     ) -> Result<Self> {
         let game_id = game.id.db_id(&db)?;
 
-        let model = ModModel::new(next_uid(&db)?, name);
+        let model = ModModel::new(Uid::new(&db)?, name);
         let mod_id = db.write().transaction_mut(|t| -> Result<DbId> {
             let mod_id = t
                 .exec_mut(QueryBuilder::insert().element(model).query())?

@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use agdb::{DbElement, DbId, DbSerialize, DbValue};
 use strum::{Display, EnumIter};
 
-use crate::repository::db::Uid;
+use crate::repository::entities::Uid;
 
 #[derive(
     Debug, Clone, Default, DbValue, DbSerialize, Copy, PartialEq, PartialOrd, Display, EnumIter,
@@ -28,7 +28,7 @@ pub enum DeployKind {
 #[derive(Debug, Clone, DbElement, PartialEq, PartialOrd)]
 pub(crate) struct GameModel {
     pub(crate) db_id: Option<DbId>,
-    pub(crate) uid: Uid,
+    pub(crate) uid: u64,
     pub(crate) name: String,
     pub(crate) targets: Vec<PathBuf>,
     pub(crate) deploy_kind: DeployKind,
@@ -38,7 +38,7 @@ impl GameModel {
     pub fn new(uid: Uid, name: &str, deploy_kind: DeployKind) -> Self {
         Self {
             db_id: None,
-            uid,
+            uid: uid.0,
             name: name.to_string(),
             targets: Vec::new(),
             deploy_kind,

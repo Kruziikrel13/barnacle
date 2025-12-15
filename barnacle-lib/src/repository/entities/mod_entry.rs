@@ -8,7 +8,7 @@ use crate::repository::{
         Db,
         models::{ModEntryModel, ModModel},
     },
-    entities::{EntityId, Result, get_field, next_uid, set_field},
+    entities::{EntityId, Result, Uid, get_field, set_field},
 };
 
 /// Represents a mod entry in the Barnacle system.
@@ -58,7 +58,7 @@ impl ModEntry {
             .last()
             .map(|e| e.entry_id.db_id(db).unwrap());
 
-        let model = ModEntryModel::new(next_uid(db)?);
+        let model = ModEntryModel::new(Uid::new(db)?);
         let entry_id = db.write().transaction_mut(|t| -> Result<DbId> {
             let entry_id = t
                 .exec_mut(QueryBuilder::insert().element(&model).query())?
