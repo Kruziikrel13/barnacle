@@ -5,13 +5,21 @@ use iced::{
 };
 use rfd::AsyncFileDialog;
 
+use crate::icons::icon;
+
 #[derive(Debug, Clone)]
 pub enum Message {
     NameChanged(String),
     PathChanged(String),
-    PickPathButtonPressed,
+    PickPath(PickPathKind),
     PathPicked(Option<String>),
     CancelButtonPressed,
+}
+
+#[derive(Debug, Clone)]
+pub enum PickPathKind {
+    Archive,
+    Directory,
 }
 
 pub struct AddModDialog {
@@ -42,13 +50,15 @@ impl AddModDialog {
                 self.path = path;
                 Task::none()
             }
-            Message::PickPathButtonPressed => Task::perform(
-                async {
-                    AsyncFileDialog::new()
-                        .set_directory("/")
-                        .pick_file()
-                        .await
-                        .map(|handle| handle.path().display().to_string())
+            Message::PickPath(kind) => Task::perform(
+                async move {
+                    let picker = AsyncFileDialog::new().set_directory("/");
+
+                    match kind {
+                        PickPathKind::Archive => picker.pick_file().await,
+                        PickPathKind::Directory => picker.pick_folder().await,
+                    }
+                    .map(|file_handle| file_handle.path().display().to_string())
                 },
                 Message::PathPicked,
             ),
@@ -67,12 +77,13 @@ impl AddModDialog {
         container(column![
             row![
                 "Name: ",
-                text_input("Name...", &self.name).on_input(Message::NameChanged)
+                text_input("...", &self.name).on_input(Message::NameChanged)
             ],
             row![
                 "Path: ",
-                text_input("Path...", &self.path).on_input(Message::PathChanged),
-                button("...").on_press(Message::PickPathButtonPressed)
+                text_input("...", &self.path).on_input(Message::PathChanged),
+                button(icon("archive")).on_press(Message::PickPath(PickPathKind::Archive)),
+                button(icon("directory")).on_press(Message::PickPath(PickPathKind::Directory))
             ],
             space::vertical(),
             row![
