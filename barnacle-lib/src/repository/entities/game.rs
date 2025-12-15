@@ -27,9 +27,9 @@ use crate::{
 /// managing profiles and mods. Always reflects the current database state.
 #[derive(Debug, Clone)]
 pub struct Game {
-    id: EntityId,
-    db: Db,
-    cfg: Cfg,
+    pub(crate) id: EntityId,
+    pub(crate) db: Db,
+    pub(crate) cfg: Cfg,
 }
 
 impl Game {
@@ -185,42 +185,7 @@ impl Game {
     }
 
     pub fn add_mod(&mut self, name: &str, path: Option<&Path>) -> Result<Mod> {
-        let game_id = self.id.db_id(&self.db)?;
-
-        let model = ModModel::new(next_uid(&self.db)?, name);
-        let mod_id = self.db.write().transaction_mut(|t| -> Result<DbId> {
-            let mod_id = t
-                .exec_mut(QueryBuilder::insert().element(model).query())?
-                .elements
-                .first()
-                .expect("A successful query should not be empty")
-                .id;
-
-            // Link Profile to the specified Game node and root "profiles" node
-            t.exec_mut(
-                QueryBuilder::insert()
-                    .edges()
-                    .from([QueryId::from("profiles"), QueryId::from(game_id)])
-                    .to(mod_id)
-                    .query(),
-            )?;
-
-            Ok(mod_id)
-        })?;
-
-        let mod_ = Mod::load(mod_id, self.db.clone(), self.cfg.clone())?;
-
-        // TODO: Only attempt to open the archive if the input_path is an archive
-        if let Some(path) = path {
-            let archive = File::open(path).unwrap();
-            uncompress_archive(archive, &self.dir()?, Ownership::Preserve).unwrap();
-            change_dir_permissions(&self.dir()?, Permissions::ReadOnly);
-        } else {
-            let path = mod_.dir()?;
-            fs::create_dir_all(path).unwrap();
-        };
-
-        Ok(mod_)
+        Mod::add(self.db.clone(), self.cfg.clone(), self, name, path)
     }
 
     pub fn remove_mod(&mut self, mod_: Mod) -> Result<()> {

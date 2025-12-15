@@ -1,17 +1,24 @@
 use std::{
     fmt::{self, Debug, Display, Formatter},
-    fs,
-    path::PathBuf,
+    fs::{self, File},
+    path::{Path, PathBuf},
 };
 
-use agdb::{DbId, DbValue, QueryBuilder};
+use agdb::{DbId, DbValue, QueryBuilder, QueryId};
+use compress_tools::{Ownership, uncompress_archive};
 use heck::ToSnakeCase;
 use tracing::debug;
 
-use crate::repository::{
-    Cfg,
-    db::{Db, models::GameModel},
-    entities::{EntityId, Result, game::Game, get_field, set_field},
+use crate::{
+    fs::{Permissions, change_dir_permissions},
+    repository::{
+        Cfg,
+        db::{
+            Db,
+            models::{GameModel, ModModel},
+        },
+        entities::{EntityId, Result, game::Game, get_field, next_uid, set_field},
+    },
 };
 
 /// Represents a mod entity in the Barnacle system.
@@ -63,6 +70,51 @@ impl Mod {
             .id;
 
         Game::load(parent_game_id, self.db.clone(), self.cfg.clone())
+    }
+
+    pub(crate) fn add(
+        db: Db,
+        cfg: Cfg,
+        game: &Game,
+        name: &str,
+        path: Option<&Path>,
+    ) -> Result<Self> {
+        let game_id = game.id.db_id(&db)?;
+
+        let model = ModModel::new(next_uid(&db)?, name);
+        let mod_id = db.write().transaction_mut(|t| -> Result<DbId> {
+            let mod_id = t
+                .exec_mut(QueryBuilder::insert().element(model).query())?
+                .elements
+                .first()
+                .expect("A successful query should not be empty")
+                .id;
+
+            // Link Mod to the specified Game node and root "mods" node
+            t.exec_mut(
+                QueryBuilder::insert()
+                    .edges()
+                    .from([QueryId::from("mods"), QueryId::from(game_id)])
+                    .to(mod_id)
+                    .query(),
+            )?;
+
+            Ok(mod_id)
+        })?;
+
+        let mod_ = Mod::load(mod_id, db.clone(), cfg.clone())?;
+
+        // TODO: Only attempt to open the archive if the input_path is an archive
+        if let Some(path) = path {
+            let archive = File::open(path).unwrap();
+            uncompress_archive(archive, &mod_.dir()?, Ownership::Preserve).unwrap();
+            change_dir_permissions(&mod_.dir()?, Permissions::ReadOnly);
+        } else {
+            let path = mod_.dir()?;
+            fs::create_dir_all(path).unwrap();
+        };
+
+        Ok(mod_)
     }
 
     pub(crate) fn remove(self) -> Result<()> {
