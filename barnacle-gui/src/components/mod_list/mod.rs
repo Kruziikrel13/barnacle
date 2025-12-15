@@ -102,6 +102,10 @@ impl ModList {
                             })
                         },
                     ),
+                    table::column(
+                        column_header("Cateogry", &self.sort, SortColumn::Category),
+                        |entry: ModEntry| text("Category"),
+                    ),
                     table::column(text("Status"), |entry: ModEntry| {
                         checkbox(entry.enabled().unwrap())
                             .on_toggle(move |state| Message::ModEntryToggled(entry.clone(), state))
@@ -128,7 +132,6 @@ fn column_header<'a>(
         sort_state.icon(column)
     ])
     .style(button::subtle)
-    .width(Length::Fill)
     .on_press(Message::SortChanged(column))
     .into()
 }

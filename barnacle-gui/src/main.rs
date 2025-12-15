@@ -111,12 +111,18 @@ impl App {
     pub fn update(&mut self, message: Message) -> Task<Message> {
         match message {
             // Redirect messages to relevant child components
-            Message::AddModDialog(msg) => match msg {
-                add_mod_dialog::Message::CancelButtonPressed => {
+            Message::AddModDialog(message) => match self.add_mod_dialog.update(message) {
+                add_mod_dialog::Action::None => Task::none(),
+                add_mod_dialog::Action::Task(task) => task.map(Message::AddModDialog),
+                add_mod_dialog::Action::Cancel => {
                     self.show_add_mod_dialog = false;
                     Task::none()
                 }
-                _ => self.add_mod_dialog.update(msg).map(Message::AddModDialog),
+                add_mod_dialog::Action::AddMod => {
+                    println!("Mod added");
+                    self.show_add_mod_dialog = false;
+                    Task::none()
+                }
             },
             Message::ModList(msg) => self.mod_list.update(msg).map(Message::ModList),
             Message::LibraryManager(msg) => match msg {

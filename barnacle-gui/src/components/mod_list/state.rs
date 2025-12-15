@@ -25,6 +25,7 @@ pub enum SortDirection {
 #[derive(Debug, Clone, PartialEq, Eq, Copy, Serialize, Deserialize)]
 pub enum SortColumn {
     Name,
+    Category,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]

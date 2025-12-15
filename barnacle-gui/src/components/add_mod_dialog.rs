@@ -1,3 +1,5 @@
+use std::env;
+
 use barnacle_lib::Repository;
 use iced::{
     Element, Task,
@@ -14,6 +16,16 @@ pub enum Message {
     PickPath(PickPathKind),
     PathPicked(Option<String>),
     CancelButtonPressed,
+    AddButtonPressed,
+}
+
+/// Actions handed to parent widget to be performed
+#[derive(Debug)]
+pub enum Action {
+    None,
+    Task(Task<Message>),
+    Cancel,
+    AddMod,
 }
 
 #[derive(Debug, Clone)]
@@ -40,36 +52,36 @@ impl AddModDialog {
         )
     }
 
-    pub fn update(&mut self, message: Message) -> Task<Message> {
+    pub fn update(&mut self, message: Message) -> Action {
         match message {
             Message::NameChanged(name) => {
                 self.name = name;
-                Task::none()
+                Action::None
             }
             Message::PathChanged(path) => {
                 self.path = path;
-                Task::none()
+                Action::None
             }
-            Message::PickPath(kind) => Task::perform(
+            Message::PickPath(kind) => Action::Task(Task::perform(
                 async move {
-                    let picker = AsyncFileDialog::new().set_directory("/");
+                    let picker = AsyncFileDialog::new().set_directory(env::home_dir().unwrap());
 
                     match kind {
                         PickPathKind::Archive => picker.pick_file().await,
                         PickPathKind::Directory => picker.pick_folder().await,
                     }
-                    .map(|file_handle| file_handle.path().display().to_string())
+                    .map(|f| f.path().display().to_string())
                 },
                 Message::PathPicked,
-            ),
+            )),
             Message::PathPicked(path) => {
                 if let Some(path) = path {
                     self.path = path;
                 }
-                Task::none()
+                Action::None
             }
-            // Handled higher up
-            Message::CancelButtonPressed => Task::none(),
+            Message::CancelButtonPressed => Action::Cancel,
+            Message::AddButtonPressed => Action::AddMod,
         }
     }
 
@@ -89,7 +101,7 @@ impl AddModDialog {
             row![
                 space::horizontal(),
                 button("Cancel").on_press(Message::CancelButtonPressed),
-                button("Add")
+                button("Add").on_press(Message::AddButtonPressed)
             ]
         ])
         .padding(20)
