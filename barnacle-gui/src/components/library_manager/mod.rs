@@ -19,6 +19,13 @@ pub enum Message {
     ProfilesTab(profiles_tab::Message),
 }
 
+#[derive(Debug)]
+pub enum Action {
+    None,
+    Task(Task<Message>),
+    Close,
+}
+
 #[derive(Debug, Default, Clone, Eq, PartialEq)]
 pub enum TabId {
     #[default]
@@ -57,16 +64,20 @@ impl LibraryManager {
         )
     }
 
-    pub fn update(&mut self, message: Message) -> Task<Message> {
+    pub fn update(&mut self, message: Message) -> Action {
         match message {
             Message::TabSelected(id) => {
                 self.active_tab = id;
-                Task::none()
+                Action::None
             }
-            Message::CloseButtonSelected => Task::none(),
+            Message::CloseButtonSelected => Action::Close,
             // TODO: Profiles tab game selection combo box doesn't get updated about newly created games
-            Message::GamesTab(msg) => self.games_tab.update(msg).map(Message::GamesTab),
-            Message::ProfilesTab(msg) => self.profiles_tab.update(msg).map(Message::ProfilesTab),
+            Message::GamesTab(msg) => {
+                Action::Task(self.games_tab.update(msg).map(Message::GamesTab))
+            }
+            Message::ProfilesTab(msg) => {
+                Action::Task(self.profiles_tab.update(msg).map(Message::ProfilesTab))
+            }
         }
     }
 

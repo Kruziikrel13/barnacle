@@ -125,15 +125,13 @@ impl App {
                 }
             },
             Message::ModList(msg) => self.mod_list.update(msg).map(Message::ModList),
-            Message::LibraryManager(msg) => match msg {
-                library_manager::Message::CloseButtonSelected => {
+            Message::LibraryManager(message) => match self.library_manager.update(message) {
+                library_manager::Action::None => Task::none(),
+                library_manager::Action::Task(task) => task.map(Message::LibraryManager),
+                library_manager::Action::Close => {
                     self.show_library_manager = false;
                     Task::none()
                 }
-                _ => self
-                    .library_manager
-                    .update(msg)
-                    .map(Message::LibraryManager),
             },
             Message::AddModButtonPressed => {
                 self.show_add_mod_dialog = true;
