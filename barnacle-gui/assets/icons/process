@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Directory where the script is located
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+echo "Processing SVG files..."
+
+find "$DIR" -type f -name '*.svg' | while read -r file; do
+    # Replace all fill attributes with "currentColor", 
+    # except those explicitly set to "none" (to preserve transparency)
+    sed -i -E '/fill="none"/! s/fill=("[^"]*")/fill="currentColor"/g' "$file"
+done
+
+echo "Done!"
