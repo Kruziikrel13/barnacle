@@ -147,7 +147,7 @@ where
     Ok(T::try_from(value).expect("conversion from a `DbValue` must succeed"))
 }
 
-pub(crate) fn set_field<T>(db: &mut Db, id: EntityId, field: &str, value: T) -> Result<()>
+pub(crate) fn set_field<T>(db: &Db, id: EntityId, field: &str, value: T) -> Result<()>
 where
     T: Into<DbValue>,
 {

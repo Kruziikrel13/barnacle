@@ -40,7 +40,7 @@ impl Game {
     }
 
     // TODO: Perform unique violation checking
-    pub fn set_name(&mut self, new_name: &str) -> Result<()> {
+    pub fn set_name(&self, new_name: &str) -> Result<()> {
         if new_name == self.name()? {
             return Ok(());
         }
@@ -180,11 +180,11 @@ impl Game {
             .collect())
     }
 
-    pub fn add_mod(&mut self, name: &str, path: Option<&Path>) -> Result<Mod> {
+    pub fn add_mod(&self, name: &str, path: Option<&Path>) -> Result<Mod> {
         Mod::add(self.db.clone(), self.cfg.clone(), self, name, path)
     }
 
-    pub fn remove_mod(&mut self, mod_: Mod) -> Result<()> {
+    pub fn remove_mod(&self, mod_: Mod) -> Result<()> {
         mod_.remove()?;
 
         Ok(())
@@ -259,11 +259,11 @@ impl Game {
         get_field(&self.db, self.id, field)
     }
 
-    pub(crate) fn set_field<T>(&mut self, field: &str, value: T) -> Result<()>
+    pub(crate) fn set_field<T>(&self, field: &str, value: T) -> Result<()>
     where
         T: Into<DbValue>,
     {
-        set_field(&mut self.db, self.id, field, value)
+        set_field(&self.db, self.id, field, value)
     }
 }
 
