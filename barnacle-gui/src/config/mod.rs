@@ -4,7 +4,7 @@ use barnacle_lib::fs::config_dir;
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 
-use crate::config::theme::Theme;
+use crate::{components::mod_list::state::SortState, config::theme::Theme};
 
 mod theme;
 
@@ -17,12 +17,14 @@ pub type Cfg = Arc<RwLock<GuiConfig>>;
 /// The backend's core configuration, serialized to TOML.
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct GuiConfig {
-    theme: Theme,
+    pub theme: Theme,
+    pub mod_list: ModList,
 }
 
-// pub struct ModList {
-//     sort_state: SortState,
-// }
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
+pub struct ModList {
+    pub sort_state: SortState,
+}
 
 impl GuiConfig {
     pub fn load() -> Self {
