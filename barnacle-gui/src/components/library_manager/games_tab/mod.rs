@@ -19,7 +19,6 @@ mod new_dialog;
 #[derive(Debug, Clone)]
 pub enum Message {
     Loaded(Vec<Game>),
-    GameDeleted,
     ShowNewDialog,
     ShowEditDialog(Game),
     DeleteButtonPressed(Game),
@@ -32,7 +31,7 @@ pub enum Message {
 pub enum Event {
     None,
     Task(Task<Message>),
-    GameDeleted,
+    GameDeleted(Game),
 }
 
 pub enum State {
@@ -65,7 +64,13 @@ impl Tab {
                 new_dialog,
                 edit_dialog,
             },
-            update_games_list(&repo),
+            Task::perform(
+                {
+                    let repo = repo.clone();
+                    async move { repo.games().unwrap() }
+                },
+                Message::Loaded,
+            ),
         )
     }
 
@@ -76,11 +81,6 @@ impl Tab {
                 self.state = State::Loaded(games);
                 Event::None
             }
-            Message::GameDeleted => {
-                Event::Task(update_games_list(&self.repo))
-                // Event::GameDeleted
-            }
-            // Components
             Message::ShowNewDialog => {
                 self.show_new_dialog = true;
                 Event::None
@@ -90,16 +90,12 @@ impl Tab {
                 self.show_edit_dialog = true;
                 Event::None
             }
-            Message::DeleteButtonPressed(game) => Event::Task(Task::perform(
-                {
-                    // So we don't try to query deleted games
-                    self.state = State::Loading;
-
-                    let repo = self.repo.clone();
-                    async move { repo.remove_game(game).unwrap() }
-                },
-                |_| Message::GameDeleted,
-            )),
+            Message::DeleteButtonPressed(game) => {
+                // TODO: Remove once I can get a StaleHandle error from missing ID
+                self.state = State::Loading;
+                Event::GameDeleted(game)
+            }
+            // Components
             Message::NewDialog(msg) => match msg {
                 new_dialog::Message::CancelPressed => {
                     self.show_new_dialog = false;
@@ -109,7 +105,7 @@ impl Tab {
                 new_dialog::Message::GameCreated => {
                     self.state = State::Loading;
                     self.show_new_dialog = false;
-                    Event::Task(update_games_list(&self.repo))
+                    Event::Task(self.refresh_list())
                 }
                 _ => Event::Task(self.new_dialog.update(msg).map(Message::NewDialog)),
             },
@@ -158,16 +154,16 @@ impl Tab {
             }
         }
     }
-}
 
-fn update_games_list(repo: &Repository) -> Task<Message> {
-    Task::perform(
-        {
-            let repo = repo.clone();
-            async move { repo.games().unwrap() }
-        },
-        Message::Loaded,
-    )
+    pub fn refresh_list(&self) -> Task<Message> {
+        Task::perform(
+            {
+                let repo = self.repo.clone();
+                async move { repo.games().unwrap() }
+            },
+            Message::Loaded,
+        )
+    }
 }
 
 fn game_row<'a>(game: &Game) -> Element<'a, Message> {

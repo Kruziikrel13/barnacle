@@ -14,6 +14,7 @@ const TAB_PADDING: u16 = 16;
 pub enum Message {
     TabSelected(TabId),
     CloseButtonSelected,
+    GameDeleted,
     // Components
     GamesTab(games_tab::Message),
     ProfilesTab(profiles_tab::Message),
@@ -74,15 +75,21 @@ impl LibraryManager {
             Message::GamesTab(message) => match self.games_tab.update(message) {
                 games_tab::Event::None => Event::None,
                 games_tab::Event::Task(task) => Event::Task(task.map(Message::GamesTab)),
-                games_tab::Event::GameDeleted => {
-                    println!("Game deleted");
-                    Event::None
-                }
+                games_tab::Event::GameDeleted(game) => Event::Task(Task::perform(
+                    {
+                        let repo = self.repo.clone();
+                        async move { repo.remove_game(game).unwrap() }
+                    },
+                    |_| Message::GameDeleted,
+                )),
             },
             Message::ProfilesTab(message) => match self.profiles_tab.update(message) {
                 profiles_tab::Event::None => Event::None,
                 profiles_tab::Event::Task(task) => Event::Task(task.map(Message::ProfilesTab)),
             },
+            Message::GameDeleted => {
+                Event::Task(self.games_tab.refresh_list().map(Message::GamesTab))
+            }
         }
     }
 
