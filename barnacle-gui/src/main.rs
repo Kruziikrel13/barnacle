@@ -34,24 +34,25 @@ fn main() -> iced::Result {
 
 #[derive(Debug, Clone)]
 enum Message {
-    AddModDialog(add_mod_dialog::Message),
-    ModList(mod_list::Message),
-    LibraryManager(library_manager::Message),
     AddModButtonPressed,
     LibraryManagerButtonPressed,
     ModAdded,
+    // Components
+    AddModDialog(add_mod_dialog::Message),
+    ModList(mod_list::Message),
+    LibraryManager(library_manager::Message),
 }
 
 struct App {
     repo: Repository,
     title: String,
     theme: Theme,
+    show_add_mod_dialog: bool,
+    show_library_manager: bool,
     // Components
     add_mod_dialog: AddModDialog,
     mod_list: ModList,
     library_manager: LibraryManager,
-    show_add_mod_dialog: bool,
-    show_library_manager: bool,
 }
 
 impl App {

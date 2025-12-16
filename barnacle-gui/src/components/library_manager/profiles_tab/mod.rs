@@ -32,6 +32,11 @@ pub enum Message {
     EditDialog(edit_dialog::Message),
 }
 
+pub enum Event {
+    None,
+    Task(Task<Message>),
+}
+
 pub enum State {
     Loading,
     Error(String),
@@ -71,25 +76,25 @@ impl Tab {
         )
     }
 
-    pub fn update(&mut self, message: Message) -> Task<Message> {
+    pub fn update(&mut self, message: Message) -> Event {
         match message {
             // State
             Message::Loaded(profiles) => {
                 self.state = State::Loaded(profiles);
-                Task::none()
+                Event::None
             }
-            Message::ProfileDeleted => update_profiles_list(&self.selected_game),
+            Message::ProfileDeleted => Event::Task(update_profiles_list(&self.selected_game)),
             // Components
             Message::ShowNewDialog => {
                 self.show_new_dialog = true;
-                Task::none()
+                Event::None
             }
             Message::ShowEditDialog(profile) => {
                 self.edit_dialog.load(profile);
                 self.show_edit_dialog = true;
-                Task::none()
+                Event::None
             }
-            Message::DeleteButtonPressed(profile) => Task::perform(
+            Message::DeleteButtonPressed(profile) => Event::Task(Task::perform(
                 {
                     // So we don't try to query deleted profiles
                     self.state = State::Loading;
@@ -98,35 +103,35 @@ impl Tab {
                     async move { game.remove_profile(profile).unwrap() }
                 },
                 |_| Message::ProfileDeleted,
-            ),
+            )),
             Message::GameSelected(game) => {
                 self.selected_game = game.clone();
                 self.new_dialog.set_game(game.clone());
-                update_profiles_list(&game)
+                Event::Task(update_profiles_list(&game))
             }
             Message::NewDialog(msg) => match msg {
                 new_dialog::Message::CancelPressed => {
                     self.show_new_dialog = false;
                     self.new_dialog.clear();
-                    Task::none()
+                    Event::None
                 }
                 new_dialog::Message::ProfileCreated => {
                     self.state = State::Loading;
                     self.show_new_dialog = false;
-                    update_profiles_list(&self.selected_game)
+                    Event::Task(update_profiles_list(&self.selected_game))
                 }
-                _ => self.new_dialog.update(msg).map(Message::NewDialog),
+                _ => Event::Task(self.new_dialog.update(msg).map(Message::NewDialog)),
             },
             Message::EditDialog(msg) => match msg {
                 edit_dialog::Message::CancelPressed => {
                     self.show_edit_dialog = false;
-                    Task::none()
+                    Event::None
                 }
                 edit_dialog::Message::ProfileEdited => {
                     self.show_edit_dialog = false;
-                    Task::none()
+                    Event::None
                 }
-                _ => self.edit_dialog.update(msg).map(Message::EditDialog),
+                _ => Event::Task(self.edit_dialog.update(msg).map(Message::EditDialog)),
             },
         }
     }

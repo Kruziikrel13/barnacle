@@ -79,9 +79,10 @@ impl LibraryManager {
                     Event::None
                 }
             },
-            Message::ProfilesTab(msg) => {
-                Event::Task(self.profiles_tab.update(msg).map(Message::ProfilesTab))
-            }
+            Message::ProfilesTab(message) => match self.profiles_tab.update(message) {
+                profiles_tab::Event::None => Event::None,
+                profiles_tab::Event::Task(task) => Event::Task(task.map(Message::ProfilesTab)),
+            },
         }
     }
 
