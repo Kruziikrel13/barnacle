@@ -116,13 +116,13 @@ impl App {
         match message {
             // Redirect messages to relevant child components
             Message::AddModDialog(message) => match self.add_mod_dialog.update(message) {
-                add_mod_dialog::Event::None => Task::none(),
-                add_mod_dialog::Event::Task(task) => task.map(Message::AddModDialog),
-                add_mod_dialog::Event::Canceled => {
+                add_mod_dialog::Action::None => Task::none(),
+                add_mod_dialog::Action::Run(task) => task.map(Message::AddModDialog),
+                add_mod_dialog::Action::Cancel => {
                     self.show_add_mod_dialog = false;
                     Task::none()
                 }
-                add_mod_dialog::Event::ModAdded { name, path } => {
+                add_mod_dialog::Action::AddMod { name, path } => {
                     self.show_add_mod_dialog = false;
                     let repo = self.repo.clone();
                     Task::perform(
@@ -139,9 +139,9 @@ impl App {
             },
             Message::ModList(message) => self.mod_list.update(message).map(Message::ModList),
             Message::LibraryManager(message) => match self.library_manager.update(message) {
-                library_manager::Event::None => Task::none(),
-                library_manager::Event::Task(task) => task.map(Message::LibraryManager),
-                library_manager::Event::Closed => {
+                library_manager::Action::None => Task::none(),
+                library_manager::Action::Run(task) => task.map(Message::LibraryManager),
+                library_manager::Action::Close => {
                     self.show_library_manager = false;
                     Task::none()
                 }

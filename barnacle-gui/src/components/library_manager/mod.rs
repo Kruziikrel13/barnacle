@@ -20,12 +20,12 @@ pub enum Message {
     ProfilesTab(profiles_tab::Message),
 }
 
-/// Event used for communicating with the parent component
+/// Action used for communicating with the parent component
 #[derive(Debug)]
-pub enum Event {
+pub enum Action {
     None,
-    Task(Task<Message>),
-    Closed,
+    Run(Task<Message>),
+    Close,
 }
 
 #[derive(Debug, Default, Clone, Eq, PartialEq)]
@@ -64,18 +64,18 @@ impl LibraryManager {
         )
     }
 
-    pub fn update(&mut self, message: Message) -> Event {
+    pub fn update(&mut self, message: Message) -> Action {
         match message {
             Message::TabSelected(id) => {
                 self.active_tab = id;
-                Event::None
+                Action::None
             }
-            Message::CloseButtonSelected => Event::Closed,
+            Message::CloseButtonSelected => Action::Close,
             // TODO: Profiles tab game selection combo box doesn't get updated about newly created games
             Message::GamesTab(message) => match self.games_tab.update(message) {
-                games_tab::Event::None => Event::None,
-                games_tab::Event::Task(task) => Event::Task(task.map(Message::GamesTab)),
-                games_tab::Event::GameDeleted(game) => Event::Task(Task::perform(
+                games_tab::Action::None => Action::None,
+                games_tab::Action::Run(task) => Action::Run(task.map(Message::GamesTab)),
+                games_tab::Action::DeleteGame(game) => Action::Run(Task::perform(
                     {
                         let repo = self.repo.clone();
                         async move { repo.remove_game(game).unwrap() }
@@ -84,11 +84,11 @@ impl LibraryManager {
                 )),
             },
             Message::ProfilesTab(message) => match self.profiles_tab.update(message) {
-                profiles_tab::Event::None => Event::None,
-                profiles_tab::Event::Task(task) => Event::Task(task.map(Message::ProfilesTab)),
+                profiles_tab::Action::None => Action::None,
+                profiles_tab::Action::Run(task) => Action::Run(task.map(Message::ProfilesTab)),
             },
             Message::GameDeleted => {
-                Event::Task(self.games_tab.refresh_list().map(Message::GamesTab))
+                Action::Run(self.games_tab.refresh_list().map(Message::GamesTab))
             }
         }
     }

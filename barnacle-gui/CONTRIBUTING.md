@@ -1,8 +1,8 @@
 # Contributing to Barnacle GUI
 
-## `Message` vs. `Event`
+## `Message` vs. `Action`
 
-`Message` enums are for component-local communication, while `Event` enums are for communicating with the parent component.
+`Message` enums are for component-local communication, while `Action` enums are for communicating with the parent component.
 
 You might wonder "why can't the parent component just match on the child's `Message` if the child wants it to perform an action?". This is because it makes it unclear that child is handing off responsibility to the parent. For instance:
 
@@ -32,4 +32,4 @@ pub fn update(&mut self, message: Message) -> Task<Message> {
 }
 ```
 
-As you can see it's very unclear here what the child is doing. It looks like it's just doing nothing. If we instead send an event (e.g `Event::ParentAction`), then it's clear what the child component wants.
+As you can see it's very unclear here what the child is doing. It looks like it's just doing nothing. If we instead send an event (e.g `Action::Close`), then it's clear what the child component wants.

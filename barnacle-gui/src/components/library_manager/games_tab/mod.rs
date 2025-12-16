@@ -28,10 +28,10 @@ pub enum Message {
 }
 
 #[derive(Debug)]
-pub enum Event {
+pub enum Action {
     None,
-    Task(Task<Message>),
-    GameDeleted(Game),
+    Run(Task<Message>),
+    DeleteGame(Game),
 }
 
 pub enum State {
@@ -74,51 +74,51 @@ impl Tab {
         )
     }
 
-    pub fn update(&mut self, message: Message) -> Event {
+    pub fn update(&mut self, message: Message) -> Action {
         match message {
             // State
             Message::Loaded(games) => {
                 self.state = State::Loaded(games);
-                Event::None
+                Action::None
             }
             Message::ShowNewDialog => {
                 self.show_new_dialog = true;
-                Event::None
+                Action::None
             }
             Message::ShowEditDialog(game) => {
                 self.edit_dialog.load(game);
                 self.show_edit_dialog = true;
-                Event::None
+                Action::None
             }
             Message::DeleteButtonPressed(game) => {
                 // TODO: Remove once I can get a StaleHandle error from missing ID
                 self.state = State::Loading;
-                Event::GameDeleted(game)
+                Action::DeleteGame(game)
             }
             // Components
             Message::NewDialog(msg) => match msg {
                 new_dialog::Message::CancelPressed => {
                     self.show_new_dialog = false;
                     self.new_dialog.clear();
-                    Event::None
+                    Action::None
                 }
                 new_dialog::Message::GameCreated => {
                     self.state = State::Loading;
                     self.show_new_dialog = false;
-                    Event::Task(self.refresh_list())
+                    Action::Run(self.refresh_list())
                 }
-                _ => Event::Task(self.new_dialog.update(msg).map(Message::NewDialog)),
+                _ => Action::Run(self.new_dialog.update(msg).map(Message::NewDialog)),
             },
             Message::EditDialog(msg) => match msg {
                 edit_dialog::Message::CancelPressed => {
                     self.show_edit_dialog = false;
-                    Event::None
+                    Action::None
                 }
                 edit_dialog::Message::GameEdited => {
                     self.show_edit_dialog = false;
-                    Event::None
+                    Action::None
                 }
-                _ => Event::Task(self.edit_dialog.update(msg).map(Message::EditDialog)),
+                _ => Action::Run(self.edit_dialog.update(msg).map(Message::EditDialog)),
             },
         }
     }
