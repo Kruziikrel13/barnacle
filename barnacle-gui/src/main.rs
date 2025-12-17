@@ -1,11 +1,16 @@
 use std::{path::PathBuf, sync::Arc};
 
-use barnacle_lib::Repository;
+use barnacle_lib::{
+    Repository,
+    repository::{Game, Profile},
+};
 use iced::{
     Color, Element,
     Length::{self, Fill},
     Task, Theme, application,
-    widget::{button, center, column, container, mouse_area, opaque, row, space, stack, text},
+    widget::{
+        button, center, column, combo_box, container, mouse_area, opaque, row, space, stack, text,
+    },
 };
 use parking_lot::RwLock;
 use tracing::Level;
@@ -37,6 +42,8 @@ enum Message {
     AddModButtonPressed,
     LibraryManagerButtonPressed,
     ModAdded,
+    GameSelected(Game),
+    ProfileSelected(Profile),
     // Components
     AddModDialog(add_mod_dialog::Message),
     ModList(mod_list::Message),
@@ -47,12 +54,24 @@ struct App {
     repo: Repository,
     title: String,
     theme: Theme,
+    game_selector: GameSelector,
+    profile_selector: ProfileSelector,
     show_add_mod_dialog: bool,
     show_library_manager: bool,
     // Components
     add_mod_dialog: AddModDialog,
     mod_list: ModList,
     library_manager: LibraryManager,
+}
+
+struct GameSelector {
+    state: combo_box::State<Game>,
+    selected: Option<Game>,
+}
+
+struct ProfileSelector {
+    state: combo_box::State<Profile>,
+    selected: Option<Profile>,
 }
 
 impl App {
@@ -89,6 +108,12 @@ impl App {
             }
         }
 
+        let current_profile = repo.current_profile().unwrap();
+        let current_game = current_profile.parent().unwrap();
+
+        let game_options = repo.games().unwrap();
+        let profile_options = current_game.profiles().unwrap();
+
         let (add_mod_dialog, _add_mod_dialog_class) = AddModDialog::new(repo.clone());
         let (mod_list, mod_list_task) = ModList::new(repo.clone(), cfg.clone());
         let (library_manager, library_manager_task) = LibraryManager::new(repo.clone());
@@ -98,11 +123,19 @@ impl App {
                 repo,
                 title: "Barnacle".into(),
                 theme,
+                game_selector: GameSelector {
+                    state: combo_box::State::new(game_options),
+                    selected: Some(current_game),
+                },
+                profile_selector: ProfileSelector {
+                    state: combo_box::State::new(profile_options),
+                    selected: Some(current_profile),
+                },
+                show_add_mod_dialog: false,
+                show_library_manager: false,
                 add_mod_dialog,
                 mod_list,
                 library_manager,
-                show_add_mod_dialog: false,
-                show_library_manager: false,
             },
             Task::batch([
                 mod_list_task.map(Message::ModList),
@@ -155,6 +188,14 @@ impl App {
                 Task::none()
             }
             Message::ModAdded => self.mod_list.update_mods_list().map(Message::ModList),
+            Message::GameSelected(game) => {
+                self.game_selector.selected = Some(game);
+                Task::none()
+            }
+            Message::ProfileSelected(profile) => {
+                self.profile_selector.selected = Some(profile);
+                Task::none()
+            }
         }
     }
 
@@ -164,8 +205,20 @@ impl App {
             // Top bar
             row![
                 text("Game:"),
+                combo_box(
+                    &self.game_selector.state,
+                    "...",
+                    self.game_selector.selected.as_ref(),
+                    Message::GameSelected
+                ),
                 button(icon("play")),
                 text("Profile:"),
+                combo_box(
+                    &self.profile_selector.state,
+                    "...",
+                    self.profile_selector.selected.as_ref(),
+                    Message::ProfileSelected
+                ),
                 space::horizontal(),
                 button(icon("library")).on_press(Message::LibraryManagerButtonPressed),
                 button(icon("settings")),

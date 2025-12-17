@@ -136,12 +136,8 @@ fn column_header<'a>(
     sort_state: &'a SortState,
     column: SortColumn,
 ) -> Element<'a, Message> {
-    button(row![
-        text(name),
-        space::horizontal(),
-        sort_state.icon(column)
-    ])
-    .style(button::subtle)
-    .on_press(Message::SortChanged(column))
-    .into()
+    button(row![text(name), sort_state.icon(column)])
+        .style(button::subtle)
+        .on_press(Message::SortChanged(column))
+        .into()
 }
