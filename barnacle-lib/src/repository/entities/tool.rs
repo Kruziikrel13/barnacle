@@ -52,7 +52,7 @@ impl Tool {
     where
         T: Into<DbValue>,
     {
-        set_field(&mut self.db, self.id, field, value)
+        set_field(&self.db, self.id, field, value)
     }
 }
 
@@ -63,5 +63,11 @@ impl Display for Tool {
             "{}",
             self.name().unwrap_or_else(|_| "<invalid game name>".into())
         )
+    }
+}
+
+impl PartialEq for Tool {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
     }
 }

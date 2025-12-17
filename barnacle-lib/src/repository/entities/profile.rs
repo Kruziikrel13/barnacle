@@ -176,7 +176,7 @@ impl Profile {
     where
         T: Into<DbValue>,
     {
-        set_field(&mut self.db, self.id, field, value)
+        set_field(&self.db, self.id, field, value)
     }
 }
 
@@ -185,8 +185,15 @@ impl Display for Profile {
         write!(
             f,
             "{}",
-            self.name().unwrap_or_else(|_| "<invalid game name>".into())
+            self.name()
+                .unwrap_or_else(|_| "<invalid profile name>".into())
         )
+    }
+}
+
+impl PartialEq for Profile {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
     }
 }
 
@@ -219,6 +226,16 @@ mod test {
 
         assert!(!dir.exists());
         assert_eq!(game.profiles().unwrap().len(), 0);
+    }
+
+    #[test]
+    fn test_parent() {
+        let mut repo = Repository::mock();
+
+        let mut game = repo.add_game("Skyrim", DeployKind::CreationEngine).unwrap();
+        let profile = game.add_profile("Test").unwrap();
+
+        assert_eq!(profile.parent().unwrap(), game);
     }
 
     #[test]

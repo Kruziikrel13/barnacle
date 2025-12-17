@@ -272,8 +272,15 @@ impl Display for Game {
         write!(
             f,
             "{}",
+            // TODO: This doesn't feel right
             self.name().unwrap_or_else(|_| "<invalid game name>".into())
         )
+    }
+}
+
+impl PartialEq for Game {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
     }
 }
 
@@ -332,7 +339,7 @@ mod test {
     fn test_set_name() {
         let mut repo = Repository::mock();
 
-        let mut game = repo.add_game("Skyrim", DeployKind::CreationEngine).unwrap();
+        let game = repo.add_game("Skyrim", DeployKind::CreationEngine).unwrap();
 
         assert_eq!(game.name().unwrap(), "Skyrim");
 

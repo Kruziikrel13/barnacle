@@ -145,7 +145,7 @@ impl Mod {
     where
         T: Into<DbValue>,
     {
-        set_field(&mut self.db, self.id, field, value)
+        set_field(&self.db, self.id, field, value)
     }
 }
 
@@ -154,8 +154,14 @@ impl Display for Mod {
         write!(
             f,
             "{}",
-            self.name().unwrap_or_else(|_| "<invalid game name>".into())
+            self.name().unwrap_or_else(|_| "<invalid mod name>".into())
         )
+    }
+}
+
+impl PartialEq for Mod {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
     }
 }
 
@@ -167,7 +173,7 @@ mod test {
     fn test_add() {
         let mut repo = Repository::mock();
 
-        let mut game = repo.add_game("Morrowind", DeployKind::OpenMW).unwrap();
+        let game = repo.add_game("Morrowind", DeployKind::OpenMW).unwrap();
         let mod_ = game.add_mod("Test", None).unwrap();
 
         assert!(mod_.dir().unwrap().exists());
@@ -177,7 +183,7 @@ mod test {
     fn test_remove() {
         let mut repo = Repository::mock();
 
-        let mut game = repo.add_game("Skyrim", DeployKind::CreationEngine).unwrap();
+        let game = repo.add_game("Skyrim", DeployKind::CreationEngine).unwrap();
         let mod_ = game.add_mod("Test", None).unwrap();
 
         assert_eq!(game.mods().unwrap().len(), 1);
@@ -188,6 +194,16 @@ mod test {
 
         assert_eq!(game.mods().unwrap().len(), 0);
         assert!(!dir.exists())
+    }
+
+    #[test]
+    fn test_parent() {
+        let mut repo = Repository::mock();
+
+        let game = repo.add_game("Morrowind", DeployKind::OpenMW).unwrap();
+        let mod_ = game.add_mod("Test", None).unwrap();
+
+        assert_eq!(mod_.parent().unwrap(), game);
     }
 
     #[test]
