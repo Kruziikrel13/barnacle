@@ -60,8 +60,12 @@ impl Repository {
         Ok(Profile::set_current(self.db.clone(), profile)?)
     }
 
-    pub fn current_profile(&self) -> Result<Profile> {
+    pub fn current_profile(&self) -> Result<Option<Profile>> {
         Ok(Profile::current(self.db.clone(), self.cfg.clone())?)
+    }
+
+    pub fn current_game(&self) -> Result<Option<Game>> {
+        Game::current(self)
     }
 
     #[cfg(test)]

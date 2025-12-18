@@ -8,13 +8,16 @@ use agdb::{DbId, DbValue, QueryBuilder, QueryId};
 use heck::ToSnakeCase;
 use tracing::debug;
 
-use crate::repository::{
-    Cfg,
-    db::{
-        Db,
-        models::{DeployKind, GameModel, ModModel, ProfileModel},
+use crate::{
+    Repository,
+    repository::{
+        Cfg,
+        db::{
+            Db,
+            models::{DeployKind, GameModel, ModModel, ProfileModel},
+        },
+        entities::{EntityId, Result, Uid, get_field, mod_::Mod, profile::Profile, set_field},
     },
-    entities::{EntityId, Result, Uid, get_field, mod_::Mod, profile::Profile, set_field},
 };
 
 /// Represents a game entity in the Barnacle system.
@@ -249,6 +252,10 @@ impl Game {
             .iter()
             .map(|e| Game::load(e.id, db.clone(), cfg.clone()).unwrap())
             .collect())
+    }
+
+    pub(crate) fn current(repo: &Repository) -> crate::Result<Option<Game>> {
+        Ok(repo.current_profile()?.map(|p| p.parent()).transpose()?)
     }
 
     fn get_field<T>(&self, field: &str) -> Result<T>

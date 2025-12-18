@@ -92,24 +92,22 @@ impl Profile {
         })
     }
 
-    pub(crate) fn current(db: Db, cfg: Cfg) -> Result<Profile> {
-        let db_id = db
-            .read()
-            .exec(
-                QueryBuilder::select()
-                    .elements::<ProfileModel>()
-                    .search()
-                    .from("current_profile")
-                    .where_()
-                    .neighbor()
-                    .query(),
-            )?
-            .elements
-            .first()
-            .expect("A successful query should not be empty")
-            .id;
+    pub(crate) fn current(db: Db, cfg: Cfg) -> Result<Option<Profile>> {
+        let query = db.read().exec(
+            QueryBuilder::select()
+                .elements::<ProfileModel>()
+                .search()
+                .from("current_profile")
+                .where_()
+                .neighbor()
+                .query(),
+        )?;
 
-        Profile::load(db_id, db.clone(), cfg.clone())
+        if let Some(db_id) = query.elements.first().map(|p| p.id) {
+            Profile::load(db_id, db.clone(), cfg.clone()).map(Some)
+        } else {
+            Ok(None)
+        }
     }
 
     /// Returns the parent [`Game`] of this [`Profile`]
