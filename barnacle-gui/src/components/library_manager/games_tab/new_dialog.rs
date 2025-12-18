@@ -14,6 +14,17 @@ pub enum Message {
     GameCreated,
 }
 
+#[derive(Debug)]
+pub enum Action {
+    None,
+    Run(Task<Message>),
+    Cancel,
+    AddGame {
+        name: String,
+        deploy_kind: DeployKind,
+    },
+}
+
 pub struct NewDialog {
     repo: Repository,
     name: String,
@@ -40,32 +51,29 @@ impl NewDialog {
         self.deploy_kind = None;
     }
 
-    pub fn update(&mut self, message: Message) -> Task<Message> {
+    pub fn update(&mut self, message: Message) -> Action {
         match message {
             Message::NameInput(content) => {
                 self.name = content;
-                Task::none()
+                Action::None
             }
             Message::DeployKindSelected(kind) => {
                 self.deploy_kind = Some(kind);
-                Task::none()
+                Action::None
             }
-            Message::CancelPressed => Task::none(),
-            Message::CreatePressed => {
-                let mut repo = self.repo.clone();
-                let name = self.name.clone();
-                let deploy_kind = self.deploy_kind.unwrap();
-
+            Message::CancelPressed => {
                 self.clear();
-
-                Task::perform(
-                    async move {
-                        repo.add_game(&name, deploy_kind).unwrap();
-                    },
-                    |_| Message::GameCreated,
-                )
+                Action::Cancel
             }
-            Message::GameCreated => Task::none(),
+            Message::CreatePressed => {
+                self.clear();
+                Action::AddGame {
+                    name: self.name.clone(),
+                    // TODO: Make deploy kind required instead of crashing w/o it
+                    deploy_kind: self.deploy_kind.unwrap(),
+                }
+            }
+            Message::GameCreated => Action::None,
         }
     }
 

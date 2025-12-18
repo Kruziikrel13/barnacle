@@ -103,18 +103,18 @@ impl Tab {
                 Action::DeleteGame(game)
             }
             // Components
-            Message::NewDialog(msg) => match msg {
-                new_dialog::Message::CancelPressed => {
+            Message::NewDialog(message) => match self.new_dialog.update(message) {
+                new_dialog::Action::None => Action::None,
+                new_dialog::Action::Run(task) => Action::Run(task.map(Message::NewDialog)),
+                new_dialog::Action::Cancel => {
                     self.show_new_dialog = false;
-                    self.new_dialog.clear();
                     Action::None
                 }
-                new_dialog::Message::GameCreated => {
+                new_dialog::Action::AddGame { name, deploy_kind } => {
                     self.state = State::Loading;
                     self.show_new_dialog = false;
-                    Action::Run(self.refresh_list())
+                    Action::AddGame { name, deploy_kind }
                 }
-                _ => Action::Run(self.new_dialog.update(msg).map(Message::NewDialog)),
             },
             Message::EditDialog(msg) => match msg {
                 edit_dialog::Message::CancelPressed => {

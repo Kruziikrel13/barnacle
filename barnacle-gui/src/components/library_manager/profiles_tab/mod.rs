@@ -45,7 +45,7 @@ pub enum State {
 
 pub struct Tab {
     state: State,
-    selected_game: Game,
+    selected_game: Option<Game>,
     game_options: combo_box::State<Game>,
     show_new_dialog: bool,
     show_edit_dialog: bool,
@@ -57,10 +57,21 @@ pub struct Tab {
 impl Tab {
     pub fn new(repo: Repository) -> (Self, Task<Message>) {
         let games = repo.games().unwrap();
-        let selected_game = repo.games().unwrap().pop().unwrap();
+        let selected_game = repo.current_game().unwrap();
 
-        let (new_dialog, _) = NewDialog::new(selected_game.clone());
+        let (new_dialog, _) = NewDialog::new();
         let (edit_dialog, _) = EditDialog::new();
+
+        let task = match &selected_game {
+            Some(game) => Task::perform(
+                {
+                    let game = game.clone();
+                    async move { game.profiles().unwrap() }
+                },
+                Message::Loaded,
+            ),
+            None => Task::none(),
+        };
 
         (
             Self {
@@ -72,67 +83,85 @@ impl Tab {
                 new_dialog,
                 edit_dialog,
             },
-            update_profiles_list(&selected_game.clone()),
+            task,
         )
     }
 
-    pub fn update(&mut self, message: Message) -> Action {
-        match message {
-            // State
-            Message::Loaded(profiles) => {
-                self.state = State::Loaded(profiles);
-                Action::None
-            }
-            Message::ProfileDeleted => Action::Run(update_profiles_list(&self.selected_game)),
-            // Components
-            Message::ShowNewDialog => {
-                self.show_new_dialog = true;
-                Action::None
-            }
-            Message::ShowEditDialog(profile) => {
-                self.edit_dialog.load(profile);
-                self.show_edit_dialog = true;
-                Action::None
-            }
-            Message::DeleteButtonPressed(profile) => Action::Run(Task::perform(
+    fn refresh(&self) -> Task<Message> {
+        if let Some(selected_game) = &self.selected_game {
+            Task::perform(
                 {
-                    // So we don't try to query deleted profiles
-                    self.state = State::Loading;
-
-                    let mut game = self.selected_game.clone();
-                    async move { game.remove_profile(profile).unwrap() }
+                    let game = selected_game.clone();
+                    async move { game.profiles().unwrap() }
                 },
-                |_| Message::ProfileDeleted,
-            )),
-            Message::GameSelected(game) => {
-                self.selected_game = game.clone();
-                self.new_dialog.set_game(game.clone());
-                Action::Run(update_profiles_list(&game))
+                Message::Loaded,
+            )
+        } else {
+            Task::none()
+        }
+    }
+
+    pub fn update(&mut self, message: Message) -> Action {
+        if let Some(selected_game) = &self.selected_game {
+            match message {
+                // State
+                Message::Loaded(profiles) => {
+                    self.state = State::Loaded(profiles);
+                    Action::None
+                }
+                Message::ProfileDeleted => Action::Run(self.refresh()),
+                // Components
+                Message::ShowNewDialog => {
+                    self.show_new_dialog = true;
+                    Action::None
+                }
+                Message::ShowEditDialog(profile) => {
+                    self.edit_dialog.load(profile);
+                    self.show_edit_dialog = true;
+                    Action::None
+                }
+                Message::DeleteButtonPressed(profile) => Action::Run(Task::perform(
+                    {
+                        // So we don't try to query deleted profiles
+                        self.state = State::Loading;
+
+                        let mut game = selected_game.clone();
+                        async move { game.remove_profile(profile).unwrap() }
+                    },
+                    |_| Message::ProfileDeleted,
+                )),
+                Message::GameSelected(game) => {
+                    self.selected_game = Some(game.clone());
+                    self.new_dialog.load(game.clone());
+                    Action::Run(self.refresh())
+                }
+                Message::NewDialog(msg) => match msg {
+                    new_dialog::Message::CancelPressed => {
+                        self.show_new_dialog = false;
+                        self.new_dialog.clear();
+                        Action::None
+                    }
+                    new_dialog::Message::ProfileCreated => {
+                        self.state = State::Loading;
+                        self.show_new_dialog = false;
+                        Action::Run(self.refresh())
+                    }
+                    _ => Action::Run(self.new_dialog.update(msg).map(Message::NewDialog)),
+                },
+                Message::EditDialog(msg) => match msg {
+                    edit_dialog::Message::CancelPressed => {
+                        self.show_edit_dialog = false;
+                        Action::None
+                    }
+                    edit_dialog::Message::ProfileEdited => {
+                        self.show_edit_dialog = false;
+                        Action::None
+                    }
+                    _ => Action::Run(self.edit_dialog.update(msg).map(Message::EditDialog)),
+                },
             }
-            Message::NewDialog(msg) => match msg {
-                new_dialog::Message::CancelPressed => {
-                    self.show_new_dialog = false;
-                    self.new_dialog.clear();
-                    Action::None
-                }
-                new_dialog::Message::ProfileCreated => {
-                    self.state = State::Loading;
-                    self.show_new_dialog = false;
-                    Action::Run(update_profiles_list(&self.selected_game))
-                }
-                _ => Action::Run(self.new_dialog.update(msg).map(Message::NewDialog)),
-            },
-            Message::EditDialog(msg) => match msg {
-                edit_dialog::Message::CancelPressed => {
-                    self.show_edit_dialog = false;
-                    Action::None
-                }
-                edit_dialog::Message::ProfileEdited => {
-                    self.show_edit_dialog = false;
-                    Action::None
-                }
-                _ => Action::Run(self.edit_dialog.update(msg).map(Message::EditDialog)),
-            },
+        } else {
+            Action::None
         }
     }
 
@@ -141,48 +170,42 @@ impl Tab {
             State::Loading => column![text("Loading...")].into(),
             State::Error(_e) => column![text("ERROR!")].into(),
             State::Loaded(profiles) => {
-                let children = profiles.iter().map(profile_row);
+                if let Some(selected_game) = &self.selected_game {
+                    let children = profiles.iter().map(profile_row);
 
-                let content = column![
-                    combo_box(
-                        &self.game_options,
-                        "Select a game...",
-                        Some(&self.selected_game),
-                        Message::GameSelected
-                    ),
-                    row![button("New").on_press(Message::ShowNewDialog)],
-                    scrollable(Column::with_children(children)).width(Length::Fill)
-                ]
-                .padding(TAB_PADDING);
+                    let content = column![
+                        combo_box(
+                            &self.game_options,
+                            "Select a game...",
+                            Some(selected_game),
+                            Message::GameSelected
+                        ),
+                        row![button("New").on_press(Message::ShowNewDialog)],
+                        scrollable(Column::with_children(children)).width(Length::Fill)
+                    ]
+                    .padding(TAB_PADDING);
 
-                if self.show_new_dialog {
-                    modal(
-                        content,
-                        self.new_dialog.view().map(Message::NewDialog),
-                        None,
-                    )
-                } else if self.show_edit_dialog {
-                    modal(
-                        content,
-                        self.edit_dialog.view().map(Message::EditDialog),
-                        None,
-                    )
+                    if self.show_new_dialog {
+                        modal(
+                            content,
+                            self.new_dialog.view().map(Message::NewDialog),
+                            None,
+                        )
+                    } else if self.show_edit_dialog {
+                        modal(
+                            content,
+                            self.edit_dialog.view().map(Message::EditDialog),
+                            None,
+                        )
+                    } else {
+                        content.into()
+                    }
                 } else {
-                    content.into()
+                    text("No games found").into()
                 }
             }
         }
     }
-}
-
-fn update_profiles_list(selected_game: &Game) -> Task<Message> {
-    Task::perform(
-        {
-            let game = selected_game.clone();
-            async move { game.profiles().unwrap() }
-        },
-        Message::Loaded,
-    )
 }
 
 fn profile_row<'a>(profile: &Profile) -> Element<'a, Message> {

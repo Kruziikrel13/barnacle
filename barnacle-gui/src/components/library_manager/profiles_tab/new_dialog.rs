@@ -13,23 +13,24 @@ pub enum Message {
 }
 
 pub struct NewDialog {
-    game: Game,
+    game: Option<Game>,
     name: String,
 }
 
 impl NewDialog {
-    pub fn new(game: Game) -> (Self, Task<Message>) {
+    pub fn new() -> (Self, Task<Message>) {
         (
             Self {
-                game,
+                game: None,
                 name: "".into(),
             },
             Task::none(),
         )
     }
 
-    pub fn set_game(&mut self, new_game: Game) {
-        self.game = new_game;
+    pub fn load(&mut self, game: Game) {
+        self.game = Some(game);
+        self.name = "".into();
     }
 
     /// Reset the dialog state
@@ -38,26 +39,30 @@ impl NewDialog {
     }
 
     pub fn update(&mut self, message: Message) -> Task<Message> {
-        match message {
-            Message::NameInput(content) => {
-                self.name = content;
-                Task::none()
-            }
-            Message::CancelPressed => Task::none(),
-            Message::CreatePressed => {
-                let mut game = self.game.clone();
-                let name = self.name.clone();
+        if let Some(game) = &self.game {
+            match message {
+                Message::NameInput(content) => {
+                    self.name = content;
+                    Task::none()
+                }
+                Message::CancelPressed => Task::none(),
+                Message::CreatePressed => {
+                    let mut game = game.clone();
+                    let name = self.name.clone();
 
-                self.clear();
+                    self.clear();
 
-                Task::perform(
-                    async move {
-                        game.add_profile(&name).unwrap();
-                    },
-                    |_| Message::ProfileCreated,
-                )
+                    Task::perform(
+                        async move {
+                            game.add_profile(&name).unwrap();
+                        },
+                        |_| Message::ProfileCreated,
+                    )
+                }
+                Message::ProfileCreated => Task::none(),
             }
-            Message::ProfileCreated => Task::none(),
+        } else {
+            Task::none()
         }
     }
 

@@ -41,18 +41,13 @@ pub struct LibraryManager {
     active_tab: TabId,
     // Components
     games_tab: games_tab::Tab,
-    profiles_tab: Option<profiles_tab::Tab>,
+    profiles_tab: profiles_tab::Tab,
 }
 
 impl LibraryManager {
     pub fn new(repo: Repository) -> (Self, Task<Message>) {
         let (games_tab, games_task) = games_tab::Tab::new(repo.clone());
-        let (profiles_tab, profiles_task) = if !repo.games().unwrap().is_empty() {
-            let (component, task) = profiles_tab::Tab::new(repo.clone());
-            (Some(component), task)
-        } else {
-            (None, Task::none())
-        };
+        let (profiles_tab, profiles_task) = profiles_tab::Tab::new(repo.clone());
 
         let tasks = Task::batch([
             games_task.map(Message::GamesTab),
@@ -96,12 +91,7 @@ impl LibraryManager {
                     |_| Message::GameDeleted,
                 )),
             },
-            Message::ProfilesTab(message) => match self
-                .profiles_tab
-                .as_mut()
-                .expect("a disabled profiles tab should not send messages")
-                .update(message)
-            {
+            Message::ProfilesTab(message) => match self.profiles_tab.update(message) {
                 profiles_tab::Action::None => Action::None,
                 profiles_tab::Action::Run(task) => Action::Run(task.map(Message::ProfilesTab)),
             },
@@ -116,22 +106,13 @@ impl LibraryManager {
         container(column![
             row![
                 button("Games").on_press(Message::TabSelected(TabId::Games)),
-                button("Profiles").on_press_maybe(if self.profiles_tab.is_some() {
-                    Some(Message::TabSelected(TabId::Profiles))
-                } else {
-                    None
-                }),
+                button("Profiles").on_press(Message::TabSelected(TabId::Profiles)),
                 space::horizontal(),
                 button(icon("close")).on_press(Message::CloseButtonSelected)
             ],
             match self.active_tab {
                 TabId::Games => self.games_tab.view().map(Message::GamesTab),
-                TabId::Profiles => self
-                    .profiles_tab
-                    .as_ref()
-                    .expect("a disabled profiles tab should not be selectable")
-                    .view()
-                    .map(Message::ProfilesTab),
+                TabId::Profiles => self.profiles_tab.view().map(Message::ProfilesTab),
             },
         ])
         .width(1000)
