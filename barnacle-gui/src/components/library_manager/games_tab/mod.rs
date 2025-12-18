@@ -1,5 +1,8 @@
 use crate::icons::icon;
-use barnacle_lib::{Repository, repository::Game};
+use barnacle_lib::{
+    Repository,
+    repository::{DeployKind, Game},
+};
 use iced::{
     Element, Length, Task,
     widget::{Column, button, column, container, row, scrollable, space, text},
@@ -31,6 +34,10 @@ pub enum Message {
 pub enum Action {
     None,
     Run(Task<Message>),
+    AddGame {
+        name: String,
+        deploy_kind: DeployKind,
+    },
     DeleteGame(Game),
 }
 

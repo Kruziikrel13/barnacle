@@ -31,6 +31,16 @@ pub mod config;
 pub mod icons;
 
 fn main() -> iced::Result {
+    // Human friendly panicking in release mode
+    human_panic::setup_panic!();
+
+    // Logging
+    let subscriber = FmtSubscriber::builder()
+        .with_max_level(Level::TRACE)
+        .with_env_filter(EnvFilter::from_default_env())
+        .finish();
+    tracing::subscriber::set_global_default(subscriber).expect("setting default subscriber failed");
+
     application(App::new, App::update, App::view)
         .theme(App::theme)
         .title(App::title)
@@ -64,55 +74,41 @@ struct App {
     library_manager: LibraryManager,
 }
 
-struct GameSelector {
-    state: combo_box::State<Game>,
-    selected: Option<Game>,
-}
-
-struct ProfileSelector {
-    state: combo_box::State<Profile>,
-    selected: Option<Profile>,
-}
-
 impl App {
     pub fn new() -> (Self, Task<Message>) {
-        // Human friendly panicking in release mode
-        human_panic::setup_panic!();
-
-        // Logging
-        let subscriber = FmtSubscriber::builder()
-            .with_max_level(Level::TRACE)
-            .with_env_filter(EnvFilter::from_default_env())
-            .finish();
-        tracing::subscriber::set_global_default(subscriber)
-            .expect("setting default subscriber failed");
-
         let mut repo = Repository::new();
         let cfg = Arc::new(RwLock::new(GuiConfig::load()));
         let theme = cfg.read().theme();
 
-        if repo.games().unwrap().is_empty() {
-            let mut game = repo
-                .add_game(
-                    "Skyrim",
-                    barnacle_lib::repository::DeployKind::CreationEngine,
-                )
-                .unwrap();
-            let profile = game.add_profile("Test Profile").unwrap();
-
-            repo.set_current_profile(&profile).unwrap();
-
-            for i in 1..100 {
-                let mod_ = game.add_mod(format!("Mod{}", i).as_str(), None).unwrap();
-                profile.add_mod_entry(mod_).unwrap();
-            }
-        }
+        // if repo.games().unwrap().is_empty() {
+        //     let mut game = repo
+        //         .add_game(
+        //             "Skyrim",
+        //             barnacle_lib::repository::DeployKind::CreationEngine,
+        //         )
+        //         .unwrap();
+        //     let profile = game.add_profile("Test Profile").unwrap();
+        //
+        //     repo.set_current_profile(&profile).unwrap();
+        //
+        //     for i in 1..100 {
+        //         let mod_ = game.add_mod(format!("Mod{}", i).as_str(), None).unwrap();
+        //         profile.add_mod_entry(mod_).unwrap();
+        //     }
+        // }
 
         let current_profile = repo.current_profile().unwrap();
-        let current_game = current_profile.parent().unwrap();
+        let current_game = current_profile
+            .as_ref()
+            .and_then(|p| Some(p.parent().unwrap()));
 
         let game_options = repo.games().unwrap();
-        let profile_options = current_game.profiles().unwrap();
+
+        let profile_options = if let Some(game) = &current_game {
+            game.profiles().unwrap()
+        } else {
+            Vec::new()
+        };
 
         let (add_mod_dialog, _add_mod_dialog_class) = AddModDialog::new(repo.clone());
         let (mod_list, mod_list_task) = ModList::new(repo.clone(), cfg.clone());
@@ -125,11 +121,11 @@ impl App {
                 theme,
                 game_selector: GameSelector {
                     state: combo_box::State::new(game_options),
-                    selected: Some(current_game),
+                    selected: current_game,
                 },
                 profile_selector: ProfileSelector {
                     state: combo_box::State::new(profile_options),
-                    selected: Some(current_profile),
+                    selected: current_profile,
                 },
                 show_add_mod_dialog: false,
                 show_library_manager: false,
@@ -160,11 +156,15 @@ impl App {
                     let repo = self.repo.clone();
                     Task::perform(
                         async move {
-                            let profile = repo.current_profile().unwrap();
-                            let game = profile.parent().unwrap();
+                            // TODO: Should this just silenty fail? I guess the "Add Mod" button
+                            // won't even be enabled if there isn't a current profile but still
+                            // doesn't feel right.
+                            if let Some(profile) = repo.current_profile().unwrap() {
+                                let game = profile.parent().unwrap();
 
-                            let mod_ = game.add_mod(&name, Some(&PathBuf::from(path))).unwrap();
-                            profile.add_mod_entry(mod_).unwrap();
+                                let mod_ = game.add_mod(&name, Some(&PathBuf::from(path))).unwrap();
+                                profile.add_mod_entry(mod_).unwrap();
+                            }
                         },
                         |_| Message::ModAdded,
                     )
@@ -255,6 +255,16 @@ impl App {
     pub fn theme(&self) -> Theme {
         self.theme.clone()
     }
+}
+
+struct GameSelector {
+    state: combo_box::State<Game>,
+    selected: Option<Game>,
+}
+
+struct ProfileSelector {
+    state: combo_box::State<Profile>,
+    selected: Option<Profile>,
 }
 
 pub fn modal<'a, Message>(

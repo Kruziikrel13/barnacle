@@ -2,13 +2,10 @@ use crate::{
     components::mod_list::state::{ContextMenuState, SortColumn, SortState},
     config::Cfg,
 };
-use barnacle_lib::{
-    Repository,
-    repository::{Profile, entities::ModEntry},
-};
+use barnacle_lib::{Repository, repository::entities::ModEntry};
 use iced::{
     Element, Length, Point, Task,
-    widget::{button, checkbox, column, row, scrollable, space, table, text},
+    widget::{button, checkbox, column, row, scrollable, table, text},
 };
 use sweeten::widget::mouse_area;
 
@@ -44,8 +41,11 @@ impl ModList {
             {
                 let repo = repo.clone();
                 async move {
-                    let current_profile = repo.clone().current_profile().unwrap();
-                    current_profile.mod_entries().unwrap()
+                    if let Some(profile) = repo.clone().current_profile().unwrap() {
+                        profile.mod_entries().unwrap()
+                    } else {
+                        Vec::new()
+                    }
                 }
             },
             Message::Loaded,
@@ -124,7 +124,13 @@ impl ModList {
         Task::perform(
             {
                 let repo = self.repo.clone();
-                async move { repo.current_profile().unwrap().mod_entries().unwrap() }
+                async move {
+                    if let Some(profile) = repo.clone().current_profile().unwrap() {
+                        profile.mod_entries().unwrap()
+                    } else {
+                        Vec::new()
+                    }
+                }
             },
             Message::Loaded,
         )
