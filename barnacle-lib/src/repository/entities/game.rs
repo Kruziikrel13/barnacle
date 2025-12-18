@@ -144,23 +144,7 @@ impl Game {
     }
 
     pub fn profiles(&self) -> Result<Vec<Profile>> {
-        let db_id = self.id.db_id(&self.db)?;
-        Ok(self
-            .db
-            .read()
-            .exec(
-                QueryBuilder::select()
-                    .elements::<ProfileModel>()
-                    .search()
-                    .from(db_id)
-                    .where_()
-                    .neighbor()
-                    .query(),
-            )?
-            .elements
-            .iter()
-            .map(|e| Profile::load(e.id, self.db.clone(), self.cfg.clone()).unwrap())
-            .collect())
+        Profile::list(&self.db, &self.cfg, self)
     }
 
     pub fn mods(&self) -> Result<Vec<Mod>> {

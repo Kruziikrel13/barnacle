@@ -162,6 +162,25 @@ impl Profile {
         Ok(())
     }
 
+    pub(crate) fn list(db: &Db, cfg: &Cfg, game: &Game) -> Result<Vec<Self>> {
+        let db_id = game.id.db_id(db)?;
+        Ok(db
+            .read()
+            .exec(
+                QueryBuilder::select()
+                    .elements::<ProfileModel>()
+                    .search()
+                    .from(db_id)
+                    .where_()
+                    .neighbor()
+                    .query(),
+            )?
+            .elements
+            .iter()
+            .map(|e| Profile::load(e.id, db.clone(), cfg.clone()).unwrap())
+            .collect())
+    }
+
     fn get_field<T>(&self, field: &str) -> Result<T>
     where
         T: TryFrom<DbValue>,
