@@ -1,0 +1,63 @@
+name: Bug Report
+description: Track a bug or problem in the existing codebase.
+labels: ["bug"]
+
+body:
+  - type: input
+    id: description
+    attributes:
+      label: Bug Description
+      description: A clear and concise description of what the bug is
+      placeholder: "Crash on startup"
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce the behaviour
+      description: Step by step instructions for how you ran into this bug.
+      placeholder: |
+        1. Started program with `cargo run`
+        2. Program crashes with error code 1
+    validations:
+      required: true
+  - type: input
+    id: expected
+    attributes:
+      label: Expected
+      description: What you expect the program to do if the bug was not present
+      placeholder: Program starts up with no issues
+    validations:
+      required: true
+  - type: input
+    id: actual
+    attributes:
+      label: Actual
+      description: What actually happens because the bug is present
+      placeholder: The program crashes with error code 1
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: OS
+      description: Distribution and version of your OS
+      placeholder: NixOS 24.05, Ubuntu 24.04
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Barnacle Version
+      placeholder: 0.3.1
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes / Extra Context
+      description: Add any other context about the problem here.
+      placeholder: | 
+        I may have an existing environment that collides with Barnacle's ability to startup.
+        I.e. extra instance files / instructions in my ~/.local that are incompatible with my updated
+        version of barnacle.
