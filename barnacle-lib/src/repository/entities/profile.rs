@@ -212,8 +212,8 @@ mod test {
     #[test]
     fn test_remove() {
         let mut repo = Repository::mock();
-
         let mut game = repo.add_game("Skyrim", DeployKind::CreationEngine).unwrap();
+
         let profile = game.add_profile("Test").unwrap();
 
         assert_eq!(game.profiles().unwrap().len(), 1);
@@ -224,6 +224,18 @@ mod test {
 
         assert!(!dir.exists());
         assert_eq!(game.profiles().unwrap().len(), 0);
+    }
+
+    #[test]
+    fn test_list() {
+        let mut repo = Repository::mock();
+        let mut game = repo.add_game("Skyrim", DeployKind::CreationEngine).unwrap();
+
+        assert_eq!(game.profiles().unwrap().len(), 0);
+
+        game.add_profile("Cool Profile").unwrap();
+
+        assert_eq!(repo.games().unwrap().len(), 1);
     }
 
     #[test]

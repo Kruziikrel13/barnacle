@@ -197,6 +197,18 @@ mod test {
     }
 
     #[test]
+    fn test_list() {
+        let mut repo = Repository::mock();
+        let game = repo.add_game("Skyrim", DeployKind::CreationEngine).unwrap();
+
+        assert_eq!(game.mods().unwrap().len(), 0);
+
+        game.add_mod("Better Spoon Textures 8K", None).unwrap();
+
+        assert_eq!(game.mods().unwrap().len(), 1);
+    }
+
+    #[test]
     fn test_parent() {
         let mut repo = Repository::mock();
 

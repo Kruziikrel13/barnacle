@@ -332,6 +332,17 @@ mod test {
     }
 
     #[test]
+    fn test_list() {
+        let mut repo = Repository::mock();
+
+        assert_eq!(repo.games().unwrap().len(), 0);
+
+        repo.add_game("Skyrim", DeployKind::CreationEngine).unwrap();
+
+        assert_eq!(repo.games().unwrap().len(), 1);
+    }
+
+    #[test]
     fn test_name() {
         let mut repo = Repository::mock();
 
