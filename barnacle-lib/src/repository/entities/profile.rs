@@ -42,7 +42,7 @@ impl Profile {
         self.get_field("name")
     }
 
-    pub fn set_name(&mut self, new_name: &str) -> Result<()> {
+    pub fn set_name(&self, new_name: &str) -> Result<()> {
         if new_name == self.name()? {
             return Ok(());
         }
@@ -189,7 +189,7 @@ impl Profile {
         get_field(&self.db, self.id, field)
     }
 
-    pub(crate) fn set_field<T>(&mut self, field: &str, value: T) -> Result<()>
+    pub(crate) fn set_field<T>(&self, field: &str, value: T) -> Result<()>
     where
         T: Into<DbValue>,
     {

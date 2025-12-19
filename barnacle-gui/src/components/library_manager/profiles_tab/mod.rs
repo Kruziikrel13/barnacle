@@ -28,6 +28,7 @@ pub enum Message {
     DeleteButtonPressed(Profile),
     GameSelected(Game),
     ProfileCreated,
+    ProfileEdited,
     // Child messages
     NewDialog(new_dialog::Message),
     EditDialog(edit_dialog::Message),
@@ -115,6 +116,7 @@ impl Tab {
                 Action::Run(self.refresh())
             }
             Message::ProfileCreated => Action::Run(self.refresh()),
+            Message::ProfileEdited => Action::Run(self.refresh()),
             Message::DeleteButtonPressed(profile) => {
                 let game = match &self.state {
                     State::Loaded { selected_game, .. } => selected_game.clone(),
@@ -163,16 +165,25 @@ impl Tab {
                 },
                 _ => Action::None,
             },
-            Message::EditDialog(msg) => match msg {
-                edit_dialog::Message::CancelPressed => {
-                    self.show_edit_dialog = false;
-                    Action::None
-                }
-                edit_dialog::Message::ProfileEdited => {
-                    self.show_edit_dialog = false;
-                    Action::None
-                }
-                _ => Action::Run(self.edit_dialog.update(msg).map(Message::EditDialog)),
+            Message::EditDialog(message) => match &self.state {
+                State::Loaded { .. } => match self.edit_dialog.update(message) {
+                    edit_dialog::Action::None => Action::None,
+                    edit_dialog::Action::Run(task) => Action::Run(task.map(Message::EditDialog)),
+                    edit_dialog::Action::Cancel => {
+                        self.show_edit_dialog = false;
+                        Action::None
+                    }
+                    edit_dialog::Action::Edit { profile, name } => {
+                        self.show_edit_dialog = false;
+                        Action::Run(Task::perform(
+                            async move {
+                                profile.set_name(&name).unwrap();
+                            },
+                            |_| Message::ProfileEdited,
+                        ))
+                    }
+                },
+                _ => Action::None,
             },
         }
     }

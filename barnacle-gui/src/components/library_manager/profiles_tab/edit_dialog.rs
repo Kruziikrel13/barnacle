@@ -9,7 +9,13 @@ pub enum Message {
     NameInput(String),
     CancelPressed,
     ConfirmPressed,
-    ProfileEdited,
+}
+
+pub enum Action {
+    None,
+    Run(Task<Message>),
+    Cancel,
+    Edit { profile: Profile, name: String },
 }
 
 pub struct EditDialog {
@@ -40,28 +46,25 @@ impl EditDialog {
         self.name.clear();
     }
 
-    pub fn update(&mut self, message: Message) -> Task<Message> {
+    pub fn update(&mut self, message: Message) -> Action {
         match message {
             Message::NameInput(content) => {
                 self.name = content;
-                Task::none()
+                Action::None
             }
-            Message::CancelPressed => Task::none(),
+            Message::CancelPressed => Action::Cancel,
             Message::ConfirmPressed => {
-                let mut profile = self.profile.clone();
-
-                let new_name = self.name.clone();
+                let profile = self.profile.clone();
+                let name = self.name.clone();
 
                 self.clear();
 
-                Task::perform(
-                    async move {
-                        profile.as_mut().unwrap().set_name(&new_name).unwrap();
-                    },
-                    |_| Message::ProfileEdited,
-                )
+                Action::Edit {
+                    // TODO: BAD
+                    profile: profile.unwrap(),
+                    name,
+                }
             }
-            Message::ProfileEdited => Task::none(),
         }
     }
 
