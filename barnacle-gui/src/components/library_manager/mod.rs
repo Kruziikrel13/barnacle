@@ -95,10 +95,14 @@ impl LibraryManager {
                 profiles_tab::Action::None => Action::None,
                 profiles_tab::Action::Run(task) => Action::Run(task.map(Message::ProfilesTab)),
             },
-            Message::GameAdded => Action::Run(self.games_tab.refresh_list().map(Message::GamesTab)),
-            Message::GameDeleted => {
-                Action::Run(self.games_tab.refresh_list().map(Message::GamesTab))
-            }
+            Message::GameAdded => Action::Run(Task::batch([
+                self.games_tab.refresh().map(Message::GamesTab),
+                self.profiles_tab.refresh().map(Message::ProfilesTab),
+            ])),
+            Message::GameDeleted => Action::Run(Task::batch([
+                self.games_tab.refresh().map(Message::GamesTab),
+                self.profiles_tab.refresh().map(Message::ProfilesTab),
+            ])),
         }
     }
 

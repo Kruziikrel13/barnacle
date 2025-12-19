@@ -27,6 +27,7 @@ pub enum Message {
     ShowEditDialog(Profile),
     DeleteButtonPressed(Profile),
     GameSelected(Game),
+    ProfileCreated,
     // Child messages
     NewDialog(new_dialog::Message),
     EditDialog(edit_dialog::Message),
@@ -113,6 +114,7 @@ impl Tab {
                 self.new_dialog.load(game.clone());
                 Action::Run(self.refresh())
             }
+            Message::ProfileCreated => Action::Run(self.refresh()),
             Message::DeleteButtonPressed(profile) => {
                 let game = match &self.state {
                     State::Loaded { selected_game, .. } => selected_game.clone(),
@@ -137,18 +139,29 @@ impl Tab {
                 self.show_edit_dialog = true;
                 Action::None
             }
-            Message::NewDialog(msg) => match msg {
-                new_dialog::Message::CancelPressed => {
-                    self.show_new_dialog = false;
-                    self.new_dialog.clear();
-                    Action::None
-                }
-                new_dialog::Message::ProfileCreated => {
-                    self.state = State::Loading;
-                    self.show_new_dialog = false;
-                    Action::Run(self.refresh())
-                }
-                _ => Action::Run(self.new_dialog.update(msg).map(Message::NewDialog)),
+            Message::NewDialog(message) => match &self.state {
+                State::Loaded { selected_game, .. } => match self.new_dialog.update(message) {
+                    new_dialog::Action::None => Action::None,
+                    new_dialog::Action::Run(task) => Action::Run(task.map(Message::NewDialog)),
+                    new_dialog::Action::Cancel => {
+                        self.show_new_dialog = false;
+                        self.new_dialog.clear();
+                        Action::None
+                    }
+                    new_dialog::Action::Create { name } => {
+                        let selected_game = selected_game.clone();
+
+                        self.state = State::Loading;
+                        self.show_new_dialog = false;
+                        Action::Run(Task::perform(
+                            async move {
+                                selected_game.add_profile(&name).unwrap();
+                            },
+                            |_| Message::ProfileCreated,
+                        ))
+                    }
+                },
+                _ => Action::None,
             },
             Message::EditDialog(msg) => match msg {
                 edit_dialog::Message::CancelPressed => {

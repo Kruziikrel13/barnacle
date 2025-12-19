@@ -162,7 +162,7 @@ impl Tab {
         }
     }
 
-    pub fn refresh_list(&self) -> Task<Message> {
+    pub fn refresh(&self) -> Task<Message> {
         Task::perform(
             {
                 let repo = self.repo.clone();

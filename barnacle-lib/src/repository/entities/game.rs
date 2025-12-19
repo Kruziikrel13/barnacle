@@ -98,7 +98,7 @@ impl Game {
         Ok(())
     }
 
-    pub fn add_profile(&mut self, name: &str) -> Result<Profile> {
+    pub fn add_profile(&self, name: &str) -> Result<Profile> {
         let model = ProfileModel::new(Uid::new(&self.db)?, name);
         if self
             .profiles()?

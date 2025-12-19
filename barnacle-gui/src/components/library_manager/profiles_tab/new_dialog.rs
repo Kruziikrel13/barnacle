@@ -9,7 +9,13 @@ pub enum Message {
     NameInput(String),
     CancelPressed,
     CreatePressed,
-    ProfileCreated,
+}
+
+pub enum Action {
+    None,
+    Run(Task<Message>),
+    Cancel,
+    Create { name: String },
 }
 
 pub struct NewDialog {
@@ -38,31 +44,20 @@ impl NewDialog {
         self.name.clear();
     }
 
-    pub fn update(&mut self, message: Message) -> Task<Message> {
-        if let Some(game) = &self.game {
-            match message {
-                Message::NameInput(content) => {
-                    self.name = content;
-                    Task::none()
-                }
-                Message::CancelPressed => Task::none(),
-                Message::CreatePressed => {
-                    let mut game = game.clone();
-                    let name = self.name.clone();
-
-                    self.clear();
-
-                    Task::perform(
-                        async move {
-                            game.add_profile(&name).unwrap();
-                        },
-                        |_| Message::ProfileCreated,
-                    )
-                }
-                Message::ProfileCreated => Task::none(),
+    pub fn update(&mut self, message: Message) -> Action {
+        match message {
+            Message::NameInput(content) => {
+                self.name = content;
+                Action::None
             }
-        } else {
-            Task::none()
+            Message::CancelPressed => Action::Cancel,
+            Message::CreatePressed => {
+                let name = self.name.clone();
+
+                self.clear();
+
+                Action::Create { name }
+            }
         }
     }
 
