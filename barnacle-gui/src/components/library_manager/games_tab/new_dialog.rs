@@ -66,11 +66,15 @@ impl NewDialog {
                 Action::Cancel
             }
             Message::CreatePressed => {
+                let name = self.name.clone();
+                let deploy_kind = self.deploy_kind.unwrap();
+
                 self.clear();
+
                 Action::AddGame {
-                    name: self.name.clone(),
+                    name,
                     // TODO: Make deploy kind required instead of crashing w/o it
-                    deploy_kind: self.deploy_kind.unwrap(),
+                    deploy_kind,
                 }
             }
             Message::GameCreated => Action::None,
