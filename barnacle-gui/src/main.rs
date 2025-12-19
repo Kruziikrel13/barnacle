@@ -76,7 +76,7 @@ struct App {
 
 impl App {
     pub fn new() -> (Self, Task<Message>) {
-        let mut repo = Repository::new();
+        let repo = Repository::new();
         let cfg = Arc::new(RwLock::new(GuiConfig::load()));
         let theme = cfg.read().theme();
 
@@ -98,9 +98,7 @@ impl App {
         // }
 
         let current_profile = repo.current_profile().unwrap();
-        let current_game = current_profile
-            .as_ref()
-            .and_then(|p| Some(p.parent().unwrap()));
+        let current_game = repo.current_game().unwrap();
 
         let game_options = repo.games().unwrap();
 

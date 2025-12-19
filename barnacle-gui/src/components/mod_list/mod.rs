@@ -71,7 +71,7 @@ impl ModList {
                 self.cfg.write().mod_list.sort_state = self.sort;
             }
             Message::ClickedOutContextMenu => self.context_menu = None,
-            Message::ModEntryToggled(mut entry, state) => {
+            Message::ModEntryToggled(entry, state) => {
                 // TODO: This should be async
                 entry.set_enabled(state).unwrap();
             }

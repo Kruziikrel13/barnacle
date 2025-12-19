@@ -233,24 +233,20 @@ pub fn load_state(repo: Repository) -> Task<Message> {
     Task::perform(
         async move {
             let games = repo.games().unwrap();
+            if games.is_empty() {
+                return State::NoGames;
+            }
 
-            match games.first() {
-                None => State::NoGames,
-                Some(_) => {
-                    let selected_game = repo
-                        .current_game()
-                        .unwrap()
-                        .or_else(|| games.first().cloned())
-                        .unwrap();
+            let selected_game = match repo.current_game().unwrap() {
+                Some(game) => game,
+                None => games.first().cloned().unwrap(),
+            };
+            let profiles = selected_game.profiles().unwrap();
 
-                    let profiles = selected_game.profiles().unwrap();
-
-                    State::Loaded {
-                        selected_game,
-                        games,
-                        profiles,
-                    }
-                }
+            State::Loaded {
+                selected_game,
+                games,
+                profiles,
             }
         },
         Message::StateLoaded,
