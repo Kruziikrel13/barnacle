@@ -137,7 +137,7 @@ impl Game {
         Ok(profile)
     }
 
-    pub fn remove_profile(&mut self, profile: Profile) -> Result<()> {
+    pub fn remove_profile(&self, profile: Profile) -> Result<()> {
         profile.remove()?;
 
         Ok(())
