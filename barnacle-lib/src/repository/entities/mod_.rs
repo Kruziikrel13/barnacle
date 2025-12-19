@@ -141,7 +141,7 @@ impl Mod {
         get_field(&self.db, self.id, field)
     }
 
-    pub(crate) fn set_field<T>(&mut self, field: &str, value: T) -> Result<()>
+    pub(crate) fn set_field<T>(&self, field: &str, value: T) -> Result<()>
     where
         T: Into<DbValue>,
     {
@@ -171,7 +171,7 @@ mod test {
 
     #[test]
     fn test_add() {
-        let mut repo = Repository::mock();
+        let repo = Repository::mock();
 
         let game = repo.add_game("Morrowind", DeployKind::OpenMW).unwrap();
         let mod_ = game.add_mod("Test", None).unwrap();
@@ -181,7 +181,7 @@ mod test {
 
     #[test]
     fn test_remove() {
-        let mut repo = Repository::mock();
+        let repo = Repository::mock();
 
         let game = repo.add_game("Skyrim", DeployKind::CreationEngine).unwrap();
         let mod_ = game.add_mod("Test", None).unwrap();
@@ -198,7 +198,7 @@ mod test {
 
     #[test]
     fn test_list() {
-        let mut repo = Repository::mock();
+        let repo = Repository::mock();
         let game = repo.add_game("Skyrim", DeployKind::CreationEngine).unwrap();
 
         assert_eq!(game.mods().unwrap().len(), 0);
@@ -210,7 +210,7 @@ mod test {
 
     #[test]
     fn test_parent() {
-        let mut repo = Repository::mock();
+        let repo = Repository::mock();
 
         let game = repo.add_game("Morrowind", DeployKind::OpenMW).unwrap();
         let mod_ = game.add_mod("Test", None).unwrap();
@@ -220,7 +220,7 @@ mod test {
 
     #[test]
     fn test_name() {
-        let mut repo = Repository::mock();
+        let repo = Repository::mock();
 
         repo.add_game("Fallout: New Vegas", DeployKind::Gamebryo)
             .unwrap()

@@ -41,7 +41,7 @@ impl ModEntry {
         self.get_entry_field("enabled")
     }
 
-    pub fn set_enabled(&mut self, value: bool) -> Result<()> {
+    pub fn set_enabled(&self, value: bool) -> Result<()> {
         self.set_entry_field("enabled", value)
     }
 
@@ -230,14 +230,14 @@ impl ModEntry {
         self.get_field(self.mod_id, field)
     }
 
-    fn set_entry_field<T>(&mut self, field: &str, value: T) -> Result<()>
+    fn set_entry_field<T>(&self, field: &str, value: T) -> Result<()>
     where
         T: Into<DbValue>,
     {
         self.set_field(self.entry_id, field, value)
     }
 
-    fn set_mod_field<T>(&mut self, field: &str, value: T) -> Result<()>
+    fn set_mod_field<T>(&self, field: &str, value: T) -> Result<()>
     where
         T: Into<DbValue>,
     {
@@ -252,11 +252,11 @@ impl ModEntry {
         get_field(&self.db, id, field)
     }
 
-    pub(crate) fn set_field<T>(&mut self, id: EntityId, field: &str, value: T) -> Result<()>
+    pub(crate) fn set_field<T>(&self, id: EntityId, field: &str, value: T) -> Result<()>
     where
         T: Into<DbValue>,
     {
-        set_field(&mut self.db, id, field, value)
+        set_field(&self.db, id, field, value)
     }
 }
 
@@ -283,9 +283,9 @@ mod test {
 
     #[test]
     fn test_add() {
-        let mut repo = Repository::mock();
+        let repo = Repository::mock();
 
-        let mut game = repo.add_game("Morrowind", DeployKind::OpenMW).unwrap();
+        let game = repo.add_game("Morrowind", DeployKind::OpenMW).unwrap();
         let profile = game.add_profile("Test").unwrap();
 
         let mod1 = game.add_mod("Super Duper Mod", None).unwrap();
@@ -299,9 +299,9 @@ mod test {
 
     #[test]
     fn test_remove() {
-        let mut repo = Repository::mock();
+        let repo = Repository::mock();
 
-        let mut game = repo.add_game("Morrowind", DeployKind::OpenMW).unwrap();
+        let game = repo.add_game("Morrowind", DeployKind::OpenMW).unwrap();
         let profile = game.add_profile("Test").unwrap();
 
         let mod_entries: Vec<_> = (1..=6)
@@ -342,9 +342,9 @@ mod test {
 
     #[test]
     fn test_name() {
-        let mut repo = Repository::mock();
+        let repo = Repository::mock();
 
-        let mut game = repo.add_game("Morrowind", DeployKind::OpenMW).unwrap();
+        let game = repo.add_game("Morrowind", DeployKind::OpenMW).unwrap();
         let profile = game.add_profile("Test").unwrap();
         let mod_ = game.add_mod("Super Duper Mod", None).unwrap();
 
@@ -353,13 +353,13 @@ mod test {
 
     #[test]
     fn test_enabled() {
-        let mut repo = Repository::mock();
+        let repo = Repository::mock();
 
-        let mut game = repo.add_game("Morrowind", DeployKind::OpenMW).unwrap();
+        let game = repo.add_game("Morrowind", DeployKind::OpenMW).unwrap();
         let profile = game.add_profile("Test").unwrap();
         let mod_ = game.add_mod("Super Duper Mod", None).unwrap();
 
-        let mut entry = profile.add_mod_entry(mod_).unwrap();
+        let entry = profile.add_mod_entry(mod_).unwrap();
 
         assert!(entry.enabled().unwrap());
 

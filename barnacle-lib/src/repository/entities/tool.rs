@@ -48,7 +48,7 @@ impl Tool {
         get_field(&self.db, self.id, field)
     }
 
-    pub(crate) fn set_field<T>(&mut self, field: &str, value: T) -> Result<()>
+    pub(crate) fn set_field<T>(&self, field: &str, value: T) -> Result<()>
     where
         T: Into<DbValue>,
     {

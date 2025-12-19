@@ -171,8 +171,6 @@ impl Profile {
                     .elements::<ProfileModel>()
                     .search()
                     .from(db_id)
-                    .where_()
-                    .neighbor()
                     .query(),
             )?
             .elements
@@ -220,9 +218,9 @@ mod test {
 
     #[test]
     fn test_add() {
-        let mut repo = Repository::mock();
+        let repo = Repository::mock();
 
-        let mut game = repo.add_game("Morrowind", DeployKind::OpenMW).unwrap();
+        let game = repo.add_game("Morrowind", DeployKind::OpenMW).unwrap();
         let profile = game.add_profile("Test").unwrap();
 
         assert!(profile.dir().unwrap().exists());
@@ -230,8 +228,8 @@ mod test {
 
     #[test]
     fn test_remove() {
-        let mut repo = Repository::mock();
-        let mut game = repo.add_game("Skyrim", DeployKind::CreationEngine).unwrap();
+        let repo = Repository::mock();
+        let game = repo.add_game("Skyrim", DeployKind::CreationEngine).unwrap();
 
         let profile = game.add_profile("Test").unwrap();
 
@@ -247,8 +245,8 @@ mod test {
 
     #[test]
     fn test_list() {
-        let mut repo = Repository::mock();
-        let mut game = repo.add_game("Skyrim", DeployKind::CreationEngine).unwrap();
+        let repo = Repository::mock();
+        let game = repo.add_game("Skyrim", DeployKind::CreationEngine).unwrap();
 
         assert_eq!(game.profiles().unwrap().len(), 0);
 
@@ -259,9 +257,9 @@ mod test {
 
     #[test]
     fn test_parent() {
-        let mut repo = Repository::mock();
+        let repo = Repository::mock();
 
-        let mut game = repo.add_game("Skyrim", DeployKind::CreationEngine).unwrap();
+        let game = repo.add_game("Skyrim", DeployKind::CreationEngine).unwrap();
         let profile = game.add_profile("Test").unwrap();
 
         assert_eq!(profile.parent().unwrap(), game);
@@ -269,9 +267,9 @@ mod test {
 
     #[test]
     fn test_set_current() {
-        let mut repo = Repository::mock();
+        let repo = Repository::mock();
 
-        let mut game = repo.add_game("Morrowind", DeployKind::OpenMW).unwrap();
+        let game = repo.add_game("Morrowind", DeployKind::OpenMW).unwrap();
         let profile = game.add_profile("Test").unwrap();
 
         repo.set_current_profile(&profile).unwrap();

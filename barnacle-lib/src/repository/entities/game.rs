@@ -66,7 +66,7 @@ impl Game {
         self.get_field("deploy_kind")
     }
 
-    pub fn set_deploy_kind(&mut self, new_deploy_kind: DeployKind) -> Result<()> {
+    pub fn set_deploy_kind(&self, new_deploy_kind: DeployKind) -> Result<()> {
         if new_deploy_kind == self.deploy_kind()? {
             return Ok(());
         }
@@ -226,10 +226,6 @@ impl Game {
                     .elements::<GameModel>()
                     .search()
                     .from("games")
-                    .where_()
-                    .node()
-                    .and()
-                    .neighbor()
                     .query(),
             )?
             .elements
@@ -283,7 +279,7 @@ mod test {
 
     #[test]
     fn test_add() {
-        let mut repo = Repository::mock();
+        let repo = Repository::mock();
 
         let game1 = repo.add_game("Skyrim", DeployKind::CreationEngine).unwrap();
         repo.add_game("Morrowind", DeployKind::OpenMW).unwrap();
@@ -301,7 +297,7 @@ mod test {
 
     #[test]
     fn test_remove() {
-        let mut repo = Repository::mock();
+        let repo = Repository::mock();
 
         let game = repo.add_game("Skyrim", DeployKind::CreationEngine).unwrap();
 
@@ -317,7 +313,7 @@ mod test {
 
     #[test]
     fn test_list() {
-        let mut repo = Repository::mock();
+        let repo = Repository::mock();
 
         assert_eq!(repo.games().unwrap().len(), 0);
 
@@ -328,7 +324,7 @@ mod test {
 
     #[test]
     fn test_name() {
-        let mut repo = Repository::mock();
+        let repo = Repository::mock();
 
         let game = repo
             .add_game("Fallout: New Vegas", DeployKind::Gamebryo)
@@ -339,7 +335,7 @@ mod test {
 
     #[test]
     fn test_set_name() {
-        let mut repo = Repository::mock();
+        let repo = Repository::mock();
 
         let game = repo.add_game("Skyrim", DeployKind::CreationEngine).unwrap();
 
@@ -352,7 +348,7 @@ mod test {
 
     #[test]
     fn test_deploy_kind() {
-        let mut repo = Repository::mock();
+        let repo = Repository::mock();
 
         let game = repo
             .add_game("Fallout: New Vegas", DeployKind::Gamebryo)
@@ -363,7 +359,7 @@ mod test {
 
     #[test]
     fn test_dir() {
-        let mut repo = Repository::mock();
+        let repo = Repository::mock();
 
         let game = repo
             .add_game("Fallout: New Vegas", DeployKind::Gamebryo)
