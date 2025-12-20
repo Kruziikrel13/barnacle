@@ -8,6 +8,7 @@ use iced::{
     widget::{button, checkbox, column, row, scrollable, table, text},
 };
 use sweeten::widget::mouse_area;
+use tokio::task::spawn_blocking;
 
 pub mod state;
 
@@ -37,29 +38,15 @@ pub struct ModList {
 
 impl ModList {
     pub fn new(repo: Repository, cfg: Cfg) -> (Self, Task<Message>) {
-        let task = Task::perform(
-            {
-                let repo = repo.clone();
-                async move {
-                    if let Some(profile) = repo.clone().current_profile().unwrap() {
-                        profile.mod_entries().unwrap()
-                    } else {
-                        Vec::new()
-                    }
-                }
-            },
-            Message::Loaded,
-        );
-
         (
             Self {
-                repo,
+                repo: repo.clone(),
                 cfg,
                 state: State::Loading,
                 sort: SortState::default(),
                 context_menu: None,
             },
-            task,
+            list_mods(&repo),
         )
     }
 
@@ -120,21 +107,27 @@ impl ModList {
         }
     }
 
-    pub fn update_mods_list(&self) -> Task<Message> {
-        Task::perform(
-            {
-                let repo = self.repo.clone();
-                async move {
-                    if let Some(profile) = repo.clone().current_profile().unwrap() {
-                        profile.mod_entries().unwrap()
-                    } else {
-                        Vec::new()
-                    }
-                }
-            },
-            Message::Loaded,
-        )
+    pub fn refresh(&self) -> Task<Message> {
+        list_mods(&self.repo)
     }
+}
+
+fn list_mods(repo: &Repository) -> Task<Message> {
+    let repo = repo.clone();
+    Task::perform(
+        async {
+            spawn_blocking(move || {
+                if let Some(profile) = repo.clone().current_profile().unwrap() {
+                    profile.mod_entries().unwrap()
+                } else {
+                    Vec::new()
+                }
+            })
+            .await
+            .unwrap()
+        },
+        Message::Loaded,
+    )
 }
 
 fn column_header<'a>(

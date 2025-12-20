@@ -4,6 +4,7 @@ use iced::{
     Element, Task,
     widget::{button, column, container, row, space},
 };
+use tokio::task::spawn_blocking;
 
 mod games_tab;
 mod profiles_tab;
@@ -19,6 +20,7 @@ pub enum Message {
     // Components
     GamesTab(games_tab::Message),
     ProfilesTab(profiles_tab::Message),
+    GameEdited,
 }
 
 /// Action used for communicating with the parent component
@@ -79,14 +81,32 @@ impl LibraryManager {
                 games_tab::Action::AddGame { name, deploy_kind } => Action::Run(Task::perform(
                     {
                         let repo = self.repo.clone();
-                        async move { repo.add_game(&name, deploy_kind) }
+                        async move { spawn_blocking(move || repo.add_game(&name, deploy_kind)).await }
                     },
                     |_| Message::GameAdded,
                 )),
+                games_tab::Action::EditGame {
+                    game,
+                    name,
+                    deploy_kind,
+                } => {
+                    let deploy_kind = deploy_kind.clone();
+                    Action::Run(Task::perform(
+                        async move {
+                            spawn_blocking(move || {
+                                game.set_name(&name).unwrap();
+                                game.set_deploy_kind(deploy_kind).unwrap();
+                            })
+                            .await
+                            .unwrap()
+                        },
+                        |_| Message::GameEdited,
+                    ))
+                }
                 games_tab::Action::DeleteGame(game) => Action::Run(Task::perform(
                     {
                         let repo = self.repo.clone();
-                        async move { repo.remove_game(game).unwrap() }
+                        async move { spawn_blocking(move || repo.remove_game(game).unwrap()).await }
                     },
                     |_| Message::GameDeleted,
                 )),
@@ -95,14 +115,12 @@ impl LibraryManager {
                 profiles_tab::Action::None => Action::None,
                 profiles_tab::Action::Run(task) => Action::Run(task.map(Message::ProfilesTab)),
             },
-            Message::GameAdded => Action::Run(Task::batch([
-                self.games_tab.refresh().map(Message::GamesTab),
-                self.profiles_tab.refresh().map(Message::ProfilesTab),
-            ])),
-            Message::GameDeleted => Action::Run(Task::batch([
-                self.games_tab.refresh().map(Message::GamesTab),
-                self.profiles_tab.refresh().map(Message::ProfilesTab),
-            ])),
+            Message::GameAdded | Message::GameEdited | Message::GameDeleted => {
+                Action::Run(Task::batch([
+                    self.games_tab.refresh().map(Message::GamesTab),
+                    self.profiles_tab.refresh().map(Message::ProfilesTab),
+                ]))
+            }
         }
     }
 

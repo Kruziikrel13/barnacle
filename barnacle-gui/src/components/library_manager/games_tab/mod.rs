@@ -7,6 +7,7 @@ use iced::{
     Element, Length, Task,
     widget::{Column, button, column, container, row, scrollable, space, text},
 };
+use tokio::task::spawn_blocking;
 
 use crate::{
     components::library_manager::{
@@ -35,6 +36,11 @@ pub enum Action {
     None,
     Run(Task<Message>),
     AddGame {
+        name: String,
+        deploy_kind: DeployKind,
+    },
+    EditGame {
+        game: Game,
         name: String,
         deploy_kind: DeployKind,
     },
@@ -71,13 +77,7 @@ impl Tab {
                 new_dialog,
                 edit_dialog,
             },
-            Task::perform(
-                {
-                    let repo = repo.clone();
-                    async move { repo.games().unwrap() }
-                },
-                Message::Loaded,
-            ),
+            list_games(&repo),
         )
     }
 
@@ -116,16 +116,25 @@ impl Tab {
                     Action::AddGame { name, deploy_kind }
                 }
             },
-            Message::EditDialog(msg) => match msg {
-                edit_dialog::Message::CancelPressed => {
+            Message::EditDialog(message) => match self.edit_dialog.update(message) {
+                edit_dialog::Action::None => Action::None,
+                edit_dialog::Action::Run(task) => Action::Run(task.map(Message::EditDialog)),
+                edit_dialog::Action::Cancel => {
                     self.show_edit_dialog = false;
                     Action::None
                 }
-                edit_dialog::Message::GameEdited => {
+                edit_dialog::Action::Edit {
+                    game,
+                    name,
+                    deploy_kind,
+                } => {
                     self.show_edit_dialog = false;
-                    Action::None
+                    Action::EditGame {
+                        game,
+                        name,
+                        deploy_kind,
+                    }
                 }
-                _ => Action::Run(self.edit_dialog.update(msg).map(Message::EditDialog)),
             },
         }
     }
@@ -163,14 +172,16 @@ impl Tab {
     }
 
     pub fn refresh(&self) -> Task<Message> {
-        Task::perform(
-            {
-                let repo = self.repo.clone();
-                async move { repo.games().unwrap() }
-            },
-            Message::Loaded,
-        )
+        list_games(&self.repo)
     }
+}
+
+fn list_games(repo: &Repository) -> Task<Message> {
+    let repo = repo.clone();
+    Task::perform(
+        async { spawn_blocking(move || repo.games().unwrap()).await.unwrap() },
+        Message::Loaded,
+    )
 }
 
 fn game_row<'a>(game: &Game) -> Element<'a, Message> {

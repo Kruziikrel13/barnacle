@@ -13,6 +13,7 @@ use iced::{
     },
 };
 use parking_lot::RwLock;
+use tokio::task::spawn_blocking;
 use tracing::Level;
 use tracing_subscriber::{EnvFilter, FmtSubscriber};
 
@@ -153,16 +154,20 @@ impl App {
                     self.show_add_mod_dialog = false;
                     let repo = self.repo.clone();
                     Task::perform(
-                        async move {
-                            // TODO: Should this just silenty fail? I guess the "Add Mod" button
-                            // won't even be enabled if there isn't a current profile but still
-                            // doesn't feel right.
-                            if let Some(profile) = repo.current_profile().unwrap() {
-                                let game = profile.parent().unwrap();
+                        async {
+                            spawn_blocking(move || {
+                                // TODO: Should this just silenty fail? I guess the "Add Mod" button
+                                // won't even be enabled if there isn't a current profile but still
+                                // doesn't feel right.
+                                if let Some(profile) = repo.current_profile().unwrap() {
+                                    let game = profile.parent().unwrap();
 
-                                let mod_ = game.add_mod(&name, Some(&PathBuf::from(path))).unwrap();
-                                profile.add_mod_entry(mod_).unwrap();
-                            }
+                                    let mod_ =
+                                        game.add_mod(&name, Some(&PathBuf::from(path))).unwrap();
+                                    profile.add_mod_entry(mod_).unwrap();
+                                }
+                            })
+                            .await
                         },
                         |_| Message::ModAdded,
                     )
@@ -185,7 +190,7 @@ impl App {
                 self.show_library_manager = true;
                 Task::none()
             }
-            Message::ModAdded => self.mod_list.update_mods_list().map(Message::ModList),
+            Message::ModAdded => self.mod_list.refresh().map(Message::ModList),
             Message::GameSelected(game) => {
                 self.game_selector.selected = Some(game);
                 Task::none()

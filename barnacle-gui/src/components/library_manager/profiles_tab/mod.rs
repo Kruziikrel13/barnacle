@@ -7,6 +7,7 @@ use iced::{
     Element, Length, Task,
     widget::{Column, button, column, combo_box, container, row, scrollable, space, text},
 };
+use tokio::task::spawn_blocking;
 
 use crate::{
     components::library_manager::{
@@ -126,8 +127,12 @@ impl Tab {
                 self.state = State::Loading;
 
                 Action::Run(Task::perform(
-                    async move {
-                        game.remove_profile(profile).unwrap();
+                    async {
+                        spawn_blocking(move || {
+                            game.remove_profile(profile).unwrap();
+                        })
+                        .await
+                        .unwrap()
                     },
                     |_| Message::ProfileDeleted,
                 ))
@@ -156,8 +161,11 @@ impl Tab {
                         self.state = State::Loading;
                         self.show_new_dialog = false;
                         Action::Run(Task::perform(
-                            async move {
-                                selected_game.add_profile(&name).unwrap();
+                            async {
+                                spawn_blocking(move || {
+                                    selected_game.add_profile(&name).unwrap();
+                                })
+                                .await
                             },
                             |_| Message::ProfileCreated,
                         ))
@@ -176,8 +184,11 @@ impl Tab {
                     edit_dialog::Action::Edit { profile, name } => {
                         self.show_edit_dialog = false;
                         Action::Run(Task::perform(
-                            async move {
-                                profile.set_name(&name).unwrap();
+                            async {
+                                spawn_blocking(move || {
+                                    profile.set_name(&name).unwrap();
+                                })
+                                .await
                             },
                             |_| Message::ProfileEdited,
                         ))
@@ -231,23 +242,27 @@ impl Tab {
 
 pub fn load_state(repo: Repository) -> Task<Message> {
     Task::perform(
-        async move {
-            let games = repo.games().unwrap();
-            if games.is_empty() {
-                return State::NoGames;
-            }
+        async {
+            spawn_blocking(move || {
+                let games = repo.games().unwrap();
+                if games.is_empty() {
+                    return State::NoGames;
+                }
 
-            let selected_game = match repo.current_game().unwrap() {
-                Some(game) => game,
-                None => games.first().cloned().unwrap(),
-            };
-            let profiles = selected_game.profiles().unwrap();
+                let selected_game = match repo.current_game().unwrap() {
+                    Some(game) => game,
+                    None => games.first().cloned().unwrap(),
+                };
+                let profiles = selected_game.profiles().unwrap();
 
-            State::Loaded {
-                selected_game,
-                games,
-                profiles,
-            }
+                State::Loaded {
+                    selected_game,
+                    games,
+                    profiles,
+                }
+            })
+            .await
+            .unwrap()
         },
         Message::StateLoaded,
     )

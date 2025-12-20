@@ -11,7 +11,17 @@ pub enum Message {
     DeployKindSelected(DeployKind),
     CancelPressed,
     ConfirmPressed,
-    GameEdited,
+}
+
+pub enum Action {
+    None,
+    Run(Task<Message>),
+    Cancel,
+    Edit {
+        game: Game,
+        name: String,
+        deploy_kind: DeployKind,
+    },
 }
 
 pub struct EditDialog {
@@ -48,37 +58,32 @@ impl EditDialog {
         self.deploy_kind = None;
     }
 
-    pub fn update(&mut self, message: Message) -> Task<Message> {
+    pub fn update(&mut self, message: Message) -> Action {
         match message {
             Message::NameInput(content) => {
                 self.name = content;
-                Task::none()
+                Action::None
             }
             Message::DeployKindSelected(kind) => {
                 self.deploy_kind = Some(kind);
-                Task::none()
+                Action::None
             }
-            Message::CancelPressed => Task::none(),
+            Message::CancelPressed => Action::Cancel,
             Message::ConfirmPressed => {
-                let mut game = self.game.clone();
-
-                let new_name = self.name.clone();
-                let new_deploy_kind = self.deploy_kind.unwrap();
+                // TODO: BADDDD
+                let game = self.game.clone().unwrap();
+                let name = self.name.clone();
+                // TODO: Validate instead of crashing
+                let deploy_kind = self.deploy_kind.clone().unwrap();
 
                 self.clear();
 
-                Task::perform(
-                    async move {
-                        game.as_mut().unwrap().set_name(&new_name).unwrap();
-                        game.as_mut()
-                            .unwrap()
-                            .set_deploy_kind(new_deploy_kind)
-                            .unwrap();
-                    },
-                    |_| Message::GameEdited,
-                )
+                Action::Edit {
+                    game,
+                    name,
+                    deploy_kind,
+                }
             }
-            Message::GameEdited => Task::none(),
         }
     }
 
