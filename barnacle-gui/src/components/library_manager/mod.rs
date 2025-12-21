@@ -77,22 +77,23 @@ impl LibraryManager {
             Message::GamesSidebar(message) => match self.games_sidebar.update(message) {
                 games_sidebar::Action::None => Action::None,
                 games_sidebar::Action::Run(task) => Action::Run(task.map(Message::GamesSidebar)),
-                games_sidebar::Action::AddGame { name, deploy_kind } => Action::Run(Task::perform(
+                games_sidebar::Action::AddGame(new_game) => Action::Run(Task::perform(
                     {
                         let repo = self.repo.clone();
-                        async move { spawn_blocking(move || repo.add_game(&name, deploy_kind)).await }
+                        async move {
+                            spawn_blocking(move || {
+                                repo.add_game(&new_game.name, new_game.deploy_kind)
+                            })
+                            .await
+                        }
                     },
                     |_| Message::GameAdded,
                 )),
-                games_sidebar::Action::EditGame {
-                    game,
-                    name,
-                    deploy_kind,
-                } => Action::Run(Task::perform(
+                games_sidebar::Action::EditGame(edit) => Action::Run(Task::perform(
                     async move {
                         spawn_blocking(move || {
-                            game.set_name(&name).unwrap();
-                            game.set_deploy_kind(deploy_kind).unwrap();
+                            edit.game.set_name(&edit.name).unwrap();
+                            edit.game.set_deploy_kind(edit.deploy_kind).unwrap();
                         })
                         .await
                         .unwrap()

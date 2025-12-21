@@ -15,14 +15,17 @@ pub enum Message {
 }
 
 #[derive(Debug)]
+pub struct NewGame {
+    pub name: String,
+    pub deploy_kind: DeployKind,
+}
+
+#[derive(Debug)]
 pub enum Action {
     None,
     Run(Task<Message>),
     Cancel,
-    AddGame {
-        name: String,
-        deploy_kind: DeployKind,
-    },
+    AddGame(NewGame),
 }
 
 pub struct NewDialog {
@@ -71,11 +74,11 @@ impl NewDialog {
 
                 self.clear();
 
-                Action::AddGame {
+                Action::AddGame(NewGame {
                     name,
                     // TODO: Make deploy kind required instead of crashing w/o it
                     deploy_kind,
-                }
+                })
             }
             Message::GameCreated => Action::None,
         }

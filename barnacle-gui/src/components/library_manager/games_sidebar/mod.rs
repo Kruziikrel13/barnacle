@@ -1,4 +1,7 @@
-use crate::icons::icon;
+use crate::{
+    components::library_manager::games_sidebar::{edit_dialog::GameEdit, new_dialog::NewGame},
+    icons::icon,
+};
 use barnacle_lib::{
     Repository,
     repository::{DeployKind, Game},
@@ -35,15 +38,8 @@ pub enum Message {
 pub enum Action {
     None,
     Run(Task<Message>),
-    AddGame {
-        name: String,
-        deploy_kind: DeployKind,
-    },
-    EditGame {
-        game: Game,
-        name: String,
-        deploy_kind: DeployKind,
-    },
+    AddGame(NewGame),
+    EditGame(GameEdit),
     DeleteGame(Game),
 }
 
@@ -110,10 +106,10 @@ impl Tab {
                     self.show_new_dialog = false;
                     Action::None
                 }
-                new_dialog::Action::AddGame { name, deploy_kind } => {
+                new_dialog::Action::AddGame(new_game) => {
                     self.state = State::Loading;
                     self.show_new_dialog = false;
-                    Action::AddGame { name, deploy_kind }
+                    Action::AddGame(new_game)
                 }
             },
             Message::EditDialog(message) => match self.edit_dialog.update(message) {
@@ -123,17 +119,9 @@ impl Tab {
                     self.show_edit_dialog = false;
                     Action::None
                 }
-                edit_dialog::Action::Edit {
-                    game,
-                    name,
-                    deploy_kind,
-                } => {
+                edit_dialog::Action::Edit(edit) => {
                     self.show_edit_dialog = false;
-                    Action::EditGame {
-                        game,
-                        name,
-                        deploy_kind,
-                    }
+                    Action::EditGame(edit)
                 }
             },
         }

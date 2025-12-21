@@ -13,15 +13,18 @@ pub enum Message {
     ConfirmPressed,
 }
 
+#[derive(Debug)]
+pub struct GameEdit {
+    pub game: Game,
+    pub name: String,
+    pub deploy_kind: DeployKind,
+}
+
 pub enum Action {
     None,
     Run(Task<Message>),
     Cancel,
-    Edit {
-        game: Game,
-        name: String,
-        deploy_kind: DeployKind,
-    },
+    Edit(GameEdit),
 }
 
 pub struct EditDialog {
@@ -78,11 +81,11 @@ impl EditDialog {
 
                 self.clear();
 
-                Action::Edit {
+                Action::Edit(GameEdit {
                     game,
                     name,
                     deploy_kind,
-                }
+                })
             }
         }
     }
