@@ -6,7 +6,7 @@ use iced::{
 };
 use tokio::task::spawn_blocking;
 
-mod games_tab;
+mod games_sidebar;
 mod profiles_tab;
 
 const TAB_PADDING: u16 = 16;
@@ -18,7 +18,7 @@ pub enum Message {
     GameAdded,
     GameDeleted,
     // Components
-    GamesTab(games_tab::Message),
+    GamesSidebar(games_sidebar::Message),
     ProfilesTab(profiles_tab::Message),
     GameEdited,
 }
@@ -34,7 +34,6 @@ pub enum Action {
 #[derive(Debug, Default, Clone, Eq, PartialEq)]
 pub enum TabId {
     #[default]
-    Games,
     Profiles,
 }
 
@@ -42,17 +41,17 @@ pub struct LibraryManager {
     repo: Repository,
     active_tab: TabId,
     // Components
-    games_tab: games_tab::Tab,
+    games_sidebar: games_sidebar::Tab,
     profiles_tab: profiles_tab::Tab,
 }
 
 impl LibraryManager {
     pub fn new(repo: Repository) -> (Self, Task<Message>) {
-        let (games_tab, games_task) = games_tab::Tab::new(repo.clone());
+        let (games_sidebar, games_task) = games_sidebar::Tab::new(repo.clone());
         let (profiles_tab, profiles_task) = profiles_tab::Tab::new(repo.clone());
 
         let tasks = Task::batch([
-            games_task.map(Message::GamesTab),
+            games_task.map(Message::GamesSidebar),
             profiles_task.map(Message::ProfilesTab),
         ]);
 
@@ -60,7 +59,7 @@ impl LibraryManager {
             Self {
                 repo: repo.clone(),
                 active_tab: TabId::default(),
-                games_tab,
+                games_sidebar,
                 profiles_tab,
             },
             tasks,
@@ -75,35 +74,32 @@ impl LibraryManager {
             }
             Message::CloseButtonSelected => Action::Close,
             // TODO: Profiles tab game selection combo box doesn't get updated about newly created games
-            Message::GamesTab(message) => match self.games_tab.update(message) {
-                games_tab::Action::None => Action::None,
-                games_tab::Action::Run(task) => Action::Run(task.map(Message::GamesTab)),
-                games_tab::Action::AddGame { name, deploy_kind } => Action::Run(Task::perform(
+            Message::GamesSidebar(message) => match self.games_sidebar.update(message) {
+                games_sidebar::Action::None => Action::None,
+                games_sidebar::Action::Run(task) => Action::Run(task.map(Message::GamesSidebar)),
+                games_sidebar::Action::AddGame { name, deploy_kind } => Action::Run(Task::perform(
                     {
                         let repo = self.repo.clone();
                         async move { spawn_blocking(move || repo.add_game(&name, deploy_kind)).await }
                     },
                     |_| Message::GameAdded,
                 )),
-                games_tab::Action::EditGame {
+                games_sidebar::Action::EditGame {
                     game,
                     name,
                     deploy_kind,
-                } => {
-                    let deploy_kind = deploy_kind.clone();
-                    Action::Run(Task::perform(
-                        async move {
-                            spawn_blocking(move || {
-                                game.set_name(&name).unwrap();
-                                game.set_deploy_kind(deploy_kind).unwrap();
-                            })
-                            .await
-                            .unwrap()
-                        },
-                        |_| Message::GameEdited,
-                    ))
-                }
-                games_tab::Action::DeleteGame(game) => Action::Run(Task::perform(
+                } => Action::Run(Task::perform(
+                    async move {
+                        spawn_blocking(move || {
+                            game.set_name(&name).unwrap();
+                            game.set_deploy_kind(deploy_kind).unwrap();
+                        })
+                        .await
+                        .unwrap()
+                    },
+                    |_| Message::GameEdited,
+                )),
+                games_sidebar::Action::DeleteGame(game) => Action::Run(Task::perform(
                     {
                         let repo = self.repo.clone();
                         async move { spawn_blocking(move || repo.remove_game(game).unwrap()).await }
@@ -117,7 +113,7 @@ impl LibraryManager {
             },
             Message::GameAdded | Message::GameEdited | Message::GameDeleted => {
                 Action::Run(Task::batch([
-                    self.games_tab.refresh().map(Message::GamesTab),
+                    self.games_sidebar.refresh().map(Message::GamesSidebar),
                     self.profiles_tab.refresh().map(Message::ProfilesTab),
                 ]))
             }
@@ -125,17 +121,18 @@ impl LibraryManager {
     }
 
     pub fn view(&self) -> Element<'_, Message> {
-        container(column![
-            row![
-                button("Games").on_press(Message::TabSelected(TabId::Games)),
-                button("Profiles").on_press(Message::TabSelected(TabId::Profiles)),
-                space::horizontal(),
-                button(icon("close")).on_press(Message::CloseButtonSelected)
-            ],
-            match self.active_tab {
-                TabId::Games => self.games_tab.view().map(Message::GamesTab),
-                TabId::Profiles => self.profiles_tab.view().map(Message::ProfilesTab),
-            },
+        container(row![
+            column![self.games_sidebar.view().map(Message::GamesSidebar)],
+            column![
+                row![
+                    button("Profiles").on_press(Message::TabSelected(TabId::Profiles)),
+                    space::horizontal(),
+                    button(icon("close")).on_press(Message::CloseButtonSelected)
+                ],
+                match self.active_tab {
+                    TabId::Profiles => self.profiles_tab.view().map(Message::ProfilesTab),
+                },
+            ]
         ])
         .width(1000)
         .height(800)

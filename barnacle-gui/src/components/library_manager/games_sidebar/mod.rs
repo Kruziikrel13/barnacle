@@ -12,7 +12,7 @@ use tokio::task::spawn_blocking;
 use crate::{
     components::library_manager::{
         TAB_PADDING,
-        games_tab::{edit_dialog::EditDialog, new_dialog::NewDialog},
+        games_sidebar::{edit_dialog::EditDialog, new_dialog::NewDialog},
     },
     modal,
 };
