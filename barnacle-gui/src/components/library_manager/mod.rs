@@ -1,7 +1,7 @@
 use crate::icons::icon;
 use barnacle_lib::Repository;
 use iced::{
-    Element, Task,
+    Element, Length, Task,
     widget::{button, column, container, row, space},
 };
 use tokio::task::spawn_blocking;
@@ -123,7 +123,8 @@ impl LibraryManager {
 
     pub fn view(&self) -> Element<'_, Message> {
         container(row![
-            column![self.games_sidebar.view().map(Message::GamesSidebar)],
+            column![self.games_sidebar.view().map(Message::GamesSidebar)]
+                .width(Length::FillPortion(1)),
             column![
                 row![
                     button("Profiles").on_press(Message::TabSelected(TabId::Profiles)),
@@ -134,6 +135,7 @@ impl LibraryManager {
                     TabId::Profiles => self.profiles_tab.view().map(Message::ProfilesTab),
                 },
             ]
+            .width(Length::FillPortion(2))
         ])
         .width(1000)
         .height(800)

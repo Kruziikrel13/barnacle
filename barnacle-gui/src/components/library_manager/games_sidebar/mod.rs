@@ -8,7 +8,7 @@ use barnacle_lib::{
 };
 use iced::{
     Element, Length, Task,
-    widget::{Column, button, column, container, row, scrollable, space, text},
+    widget::{Column, button, column, container, mouse_area, row, scrollable, space, text},
 };
 use tokio::task::spawn_blocking;
 
@@ -32,6 +32,7 @@ pub enum Message {
     // Child messages
     NewDialog(new_dialog::Message),
     EditDialog(edit_dialog::Message),
+    GameSelected(Game),
 }
 
 #[derive(Debug)]
@@ -52,6 +53,7 @@ pub enum State {
 pub struct Tab {
     repo: Repository,
     state: State,
+    selected_game: Option<Game>,
     show_new_dialog: bool,
     show_edit_dialog: bool,
     // Components
@@ -68,6 +70,7 @@ impl Tab {
             Self {
                 repo: repo.clone(),
                 state: State::Loading,
+                selected_game: None,
                 show_new_dialog: false,
                 show_edit_dialog: false,
                 new_dialog,
@@ -79,9 +82,12 @@ impl Tab {
 
     pub fn update(&mut self, message: Message) -> Action {
         match message {
-            // State
             Message::Loaded(games) => {
                 self.state = State::Loaded(games);
+                Action::None
+            }
+            Message::GameSelected(game) => {
+                self.selected_game = Some(game);
                 Action::None
             }
             Message::ShowNewDialog => {
@@ -132,7 +138,7 @@ impl Tab {
             State::Loading => column![text("Loading...")].into(),
             State::Error(_e) => column![text("ERROR!")].into(),
             State::Loaded(games) => {
-                let children = games.iter().map(game_row);
+                let children = games.iter().map(|g| self.game_row(g));
 
                 let content = column![
                     row![button("New").on_press(Message::ShowNewDialog)],
@@ -162,6 +168,30 @@ impl Tab {
     pub fn refresh(&self) -> Task<Message> {
         list_games(&self.repo)
     }
+
+    fn game_row<'a>(&self, game: &Game) -> Element<'a, Message> {
+        let style = if Some(game) == self.selected_game.as_ref() {
+            container::success
+        } else {
+            container::bordered_box
+        };
+
+        container(
+            mouse_area(
+                row![
+                    text(game.name().unwrap()),
+                    space::horizontal(),
+                    button(icon("edit")).on_press(Message::ShowEditDialog(game.clone())),
+                    button(icon("delete")).on_press(Message::DeleteButtonPressed(game.clone()))
+                ]
+                .padding(12),
+            )
+            .on_press(Message::GameSelected(game.clone())),
+        )
+        .width(Length::Fill)
+        .style(style)
+        .into()
+    }
 }
 
 fn list_games(repo: &Repository) -> Task<Message> {
@@ -170,19 +200,4 @@ fn list_games(repo: &Repository) -> Task<Message> {
         async { spawn_blocking(move || repo.games().unwrap()).await.unwrap() },
         Message::Loaded,
     )
-}
-
-fn game_row<'a>(game: &Game) -> Element<'a, Message> {
-    container(
-        row![
-            text(game.name().unwrap()),
-            space::horizontal(),
-            button(icon("edit")).on_press(Message::ShowEditDialog(game.clone())),
-            button(icon("delete")).on_press(Message::DeleteButtonPressed(game.clone()))
-        ]
-        .padding(12),
-    )
-    .width(Length::Fill)
-    .style(container::bordered_box)
-    .into()
 }
