@@ -4,9 +4,10 @@ use agdb::{DbId, DbValue, QueryBuilder, QueryId};
 
 use crate::repository::{
     Mod, Profile,
+    config::Cfg,
     db::{
         Db,
-        models::{ModEntryModel, ModModel},
+        models::{ModEntryModel, ModModel, ProfileModel},
     },
     entities::{EntityId, Result, Uid, get_field, set_field},
 };
@@ -22,14 +23,16 @@ pub struct ModEntry {
     /// The ID of the ModModel the entry points to
     pub(crate) mod_id: EntityId,
     pub(crate) db: Db,
+    pub(crate) cfg: Cfg,
 }
 
 impl ModEntry {
-    pub(crate) fn load(entry_db_id: DbId, mod_db_id: DbId, db: Db) -> Result<Self> {
+    pub(crate) fn load(entry_db_id: DbId, mod_db_id: DbId, db: Db, cfg: Cfg) -> Result<Self> {
         Ok(Self {
             entry_id: EntityId::load(&db, entry_db_id)?,
             mod_id: EntityId::load(&db, mod_db_id)?,
             db,
+            cfg,
         })
     }
 
@@ -49,7 +52,28 @@ impl ModEntry {
         self.get_entry_field("notes")
     }
 
-    pub(crate) fn add(db: &Db, profile: &Profile, mod_: Mod) -> Result<Self> {
+    /// Returns the parent [`Profile`] of this [`ModEntry`]
+    pub fn parent(&self) -> Result<Profile> {
+        let parent_profile_id = self
+            .db
+            .read()
+            .exec(
+                QueryBuilder::select()
+                    .elements::<ProfileModel>()
+                    .search()
+                    .from("profiles")
+                    .to(self.entry_id.db_id(&self.db)?)
+                    .query(),
+            )?
+            .elements
+            .pop()
+            .expect("a ModEntry should have a parent Profile")
+            .id;
+
+        Profile::load(parent_profile_id, self.db.clone(), self.cfg.clone())
+    }
+
+    pub(crate) fn add(db: &Db, cfg: &Cfg, profile: &Profile, mod_: Mod) -> Result<Self> {
         let profile_id = profile.id.db_id(db)?;
         let mod_id = mod_.id.db_id(db)?;
 
@@ -103,13 +127,13 @@ impl ModEntry {
             Ok(entry_id)
         })?;
 
-        ModEntry::load(entry_id, mod_id, db.clone())
+        ModEntry::load(entry_id, mod_id, db.clone(), cfg.clone())
     }
 
     /// Remove the given [`ModEntry`] from the list
-    pub(crate) fn remove(self, profile: &Profile) -> Result<()> {
+    pub(crate) fn remove(self) -> Result<()> {
         let id = self.entry_id.db_id(&self.db)?;
-        let profile_id = profile.id.db_id(&self.db)?;
+        let profile_id = self.parent()?.id.db_id(&self.db)?;
         let entry_ids: Vec<DbId> = self
             .db
             .read()
@@ -175,7 +199,7 @@ impl ModEntry {
         Ok(())
     }
 
-    pub(crate) fn list(db: &Db, profile: &Profile) -> Result<Vec<Self>> {
+    pub(crate) fn list(db: &Db, cfg: &Cfg, profile: &Profile) -> Result<Vec<Self>> {
         let db_id = profile.id.db_id(db)?;
         let mod_entry_ids: Vec<DbId> = db
             .read()
@@ -209,7 +233,7 @@ impl ModEntry {
             .into_iter()
             .zip(mod_ids)
             .map(|(entry_db_id, mod_db_id)| {
-                ModEntry::load(entry_db_id, mod_db_id, db.clone()).unwrap()
+                ModEntry::load(entry_db_id, mod_db_id, db.clone(), cfg.clone()).unwrap()
             })
             .collect())
     }
@@ -338,6 +362,23 @@ mod test {
             profile.mod_entries().unwrap().iter().collect::<Vec<_>>(),
             remaining
         );
+    }
+
+    #[test]
+    fn test_parent() {
+        let repo = Repository::mock();
+
+        let game = repo.add_game("Skyrim", DeployKind::CreationEngine).unwrap();
+        let profile = game.add_profile("The Best Profile").unwrap();
+        let mod_ = game
+            .add_mod(
+                "Better Khajiit Balls 16K - Remastered - 2025 Edition - REAL",
+                None,
+            )
+            .unwrap();
+        let entry = profile.add_mod_entry(mod_).unwrap();
+
+        assert_eq!(entry.parent().unwrap(), profile);
     }
 
     #[test]

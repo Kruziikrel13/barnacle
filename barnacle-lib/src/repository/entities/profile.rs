@@ -135,15 +135,15 @@ impl Profile {
 
     /// Add a new [`ModEntry`] to a [`Profile`] that points to the [`Mod`] given by ID.
     pub fn add_mod_entry(&self, mod_: Mod) -> Result<ModEntry> {
-        ModEntry::add(&self.db, self, mod_)
+        ModEntry::add(&self.db, &self.cfg, self, mod_)
     }
 
     pub fn remove_mod_entry(&self, entry: ModEntry) -> Result<()> {
-        ModEntry::remove(entry, self)
+        ModEntry::remove(entry)
     }
 
     pub fn mod_entries(&self) -> Result<Vec<ModEntry>> {
-        ModEntry::list(&self.db, self)
+        ModEntry::list(&self.db, &self.cfg, self)
     }
 
     pub(crate) fn remove(self) -> Result<()> {
