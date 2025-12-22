@@ -14,10 +14,8 @@ pub mod config;
 pub mod icons;
 
 fn main() -> iced::Result {
-    // Human friendly panicking in release mode
     human_panic::setup_panic!();
 
-    // Logging
     let subscriber = FmtSubscriber::builder()
         .with_max_level(Level::TRACE)
         .with_env_filter(EnvFilter::from_default_env())

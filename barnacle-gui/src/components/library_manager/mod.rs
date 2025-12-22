@@ -1,10 +1,12 @@
-use crate::icons::icon;
-use barnacle_lib::Repository;
+use crate::{
+    components::library_manager::games_sidebar::{edit_dialog::GameEdit, new_dialog::NewGame},
+    icons::icon,
+};
+use barnacle_lib::{Repository, repository::Game};
 use iced::{
     Element, Length, Task,
     widget::{button, column, container, row, space},
 };
-use tokio::task::spawn_blocking;
 
 mod games_sidebar;
 mod profiles_tab;
@@ -15,12 +17,9 @@ const TAB_PADDING: u16 = 16;
 pub enum Message {
     TabSelected(TabId),
     CloseButtonSelected,
-    GameAdded,
-    GameDeleted,
     // Components
     GamesSidebar(games_sidebar::Message),
     ProfilesTab(profiles_tab::Message),
-    GameEdited,
 }
 
 /// Action used for communicating with the parent component
@@ -28,6 +27,9 @@ pub enum Message {
 pub enum Action {
     None,
     Run(Task<Message>),
+    AddGame(NewGame),
+    EditGame(GameEdit),
+    DeleteGame(Game),
     Close,
 }
 
@@ -66,6 +68,13 @@ impl LibraryManager {
         )
     }
 
+    pub fn refresh(&self) -> Task<Message> {
+        Task::batch([
+            self.games_sidebar.refresh().map(Message::GamesSidebar),
+            self.profiles_tab.refresh().map(Message::ProfilesTab),
+        ])
+    }
+
     pub fn update(&mut self, message: Message) -> Action {
         match message {
             Message::TabSelected(id) => {
@@ -77,47 +86,14 @@ impl LibraryManager {
             Message::GamesSidebar(message) => match self.games_sidebar.update(message) {
                 games_sidebar::Action::None => Action::None,
                 games_sidebar::Action::Run(task) => Action::Run(task.map(Message::GamesSidebar)),
-                games_sidebar::Action::AddGame(new_game) => Action::Run(Task::perform(
-                    {
-                        let repo = self.repo.clone();
-                        async move {
-                            spawn_blocking(move || {
-                                repo.add_game(&new_game.name, new_game.deploy_kind)
-                            })
-                            .await
-                        }
-                    },
-                    |_| Message::GameAdded,
-                )),
-                games_sidebar::Action::EditGame(edit) => Action::Run(Task::perform(
-                    async move {
-                        spawn_blocking(move || {
-                            edit.game.set_name(&edit.name).unwrap();
-                            edit.game.set_deploy_kind(edit.deploy_kind).unwrap();
-                        })
-                        .await
-                        .unwrap()
-                    },
-                    |_| Message::GameEdited,
-                )),
-                games_sidebar::Action::DeleteGame(game) => Action::Run(Task::perform(
-                    {
-                        let repo = self.repo.clone();
-                        async move { spawn_blocking(move || repo.remove_game(game).unwrap()).await }
-                    },
-                    |_| Message::GameDeleted,
-                )),
+                games_sidebar::Action::AddGame(new_game) => Action::AddGame(new_game),
+                games_sidebar::Action::EditGame(game_edit) => Action::EditGame(game_edit),
+                games_sidebar::Action::DeleteGame(game) => Action::DeleteGame(game),
             },
             Message::ProfilesTab(message) => match self.profiles_tab.update(message) {
                 profiles_tab::Action::None => Action::None,
                 profiles_tab::Action::Run(task) => Action::Run(task.map(Message::ProfilesTab)),
             },
-            Message::GameAdded | Message::GameEdited | Message::GameDeleted => {
-                Action::Run(Task::batch([
-                    self.games_sidebar.refresh().map(Message::GamesSidebar),
-                    self.profiles_tab.refresh().map(Message::ProfilesTab),
-                ]))
-            }
         }
     }
 

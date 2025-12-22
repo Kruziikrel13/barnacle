@@ -2,10 +2,7 @@ use crate::{
     components::library_manager::games_sidebar::{edit_dialog::GameEdit, new_dialog::NewGame},
     icons::icon,
 };
-use barnacle_lib::{
-    Repository,
-    repository::{DeployKind, Game},
-};
+use barnacle_lib::{Repository, repository::Game};
 use iced::{
     Element, Length, Task,
     widget::{Column, button, column, container, mouse_area, row, scrollable, space, text},
@@ -20,8 +17,8 @@ use crate::{
     modal,
 };
 
-mod edit_dialog;
-mod new_dialog;
+pub mod edit_dialog;
+pub mod new_dialog;
 
 #[derive(Debug, Clone)]
 pub enum Message {

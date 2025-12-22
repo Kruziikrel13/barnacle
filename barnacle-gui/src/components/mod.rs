@@ -33,6 +33,9 @@ pub enum Message {
     ModAdded,
     GameSelected(Game),
     ProfileSelected(Profile),
+    GameAdded,
+    GameEdited,
+    GameDeleted,
     // Components
     AddModDialog(add_mod_dialog::Message),
     ModList(mod_list::Message),
@@ -58,23 +61,6 @@ impl App {
         let repo = Repository::new();
         let cfg = Arc::new(RwLock::new(GuiConfig::load()));
         let theme = cfg.read().theme();
-
-        // if repo.games().unwrap().is_empty() {
-        //     let mut game = repo
-        //         .add_game(
-        //             "Skyrim",
-        //             barnacle_lib::repository::DeployKind::CreationEngine,
-        //         )
-        //         .unwrap();
-        //     let profile = game.add_profile("Test Profile").unwrap();
-        //
-        //     repo.set_current_profile(&profile).unwrap();
-        //
-        //     for i in 1..100 {
-        //         let mod_ = game.add_mod(format!("Mod{}", i).as_str(), None).unwrap();
-        //         profile.add_mod_entry(mod_).unwrap();
-        //     }
-        // }
 
         let current_profile = repo.current_profile().unwrap();
         let current_game = repo.current_game().unwrap();
@@ -117,10 +103,8 @@ impl App {
         )
     }
 
-    // Update application state based on messages passed by view()
     pub fn update(&mut self, message: Message) -> Task<Message> {
         match message {
-            // Redirect messages to relevant child components
             Message::AddModDialog(message) => match self.add_mod_dialog.update(message) {
                 add_mod_dialog::Action::None => Task::none(),
                 add_mod_dialog::Action::Run(task) => task.map(Message::AddModDialog),
@@ -155,6 +139,36 @@ impl App {
             Message::LibraryManager(message) => match self.library_manager.update(message) {
                 library_manager::Action::None => Task::none(),
                 library_manager::Action::Run(task) => task.map(Message::LibraryManager),
+                library_manager::Action::AddGame(new_game) => Task::perform(
+                    {
+                        let repo = self.repo.clone();
+                        async move {
+                            spawn_blocking(move || {
+                                repo.add_game(&new_game.name, new_game.deploy_kind)
+                            })
+                            .await
+                        }
+                    },
+                    |_| Message::GameAdded,
+                ),
+                library_manager::Action::EditGame(edit) => Task::perform(
+                    async move {
+                        spawn_blocking(move || {
+                            edit.game.set_name(&edit.name).unwrap();
+                            edit.game.set_deploy_kind(edit.deploy_kind).unwrap();
+                        })
+                        .await
+                        .unwrap()
+                    },
+                    |_| Message::GameEdited,
+                ),
+                library_manager::Action::DeleteGame(game) => Task::perform(
+                    {
+                        let repo = self.repo.clone();
+                        async move { spawn_blocking(move || repo.remove_game(game).unwrap()).await }
+                    },
+                    |_| Message::GameDeleted,
+                ),
                 library_manager::Action::Close => {
                     self.show_library_manager = false;
                     Task::none()
@@ -176,6 +190,9 @@ impl App {
             Message::ProfileSelected(profile) => {
                 self.profile_selector.selected = Some(profile);
                 Task::none()
+            }
+            Message::GameAdded | Message::GameEdited | Message::GameDeleted => {
+                self.library_manager.refresh().map(Message::LibraryManager)
             }
         }
     }
