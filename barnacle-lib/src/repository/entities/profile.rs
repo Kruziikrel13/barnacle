@@ -139,15 +139,11 @@ impl Profile {
         ModEntry::add(&self.db, &self.cfg, self, mod_)
     }
 
-    pub fn remove_mod_entry(&self, entry: ModEntry) -> Result<()> {
-        ModEntry::remove(entry)
-    }
-
     pub fn mod_entries(&self) -> Result<Vec<ModEntry>> {
         ModEntry::list(&self.db, &self.cfg, self)
     }
 
-    pub(crate) fn remove(self) -> Result<()> {
+    pub fn remove(self) -> Result<()> {
         for entry in self.mod_entries()? {
             let entry_id = entry.entry_id;
             entry
@@ -257,7 +253,7 @@ mod test {
 
         let dir = profile.dir().unwrap();
 
-        game.remove_profile(profile).unwrap();
+        profile.remove().unwrap();
 
         // try removing already removed mod entry (this should panic)
         mod_entry.remove().unwrap();

@@ -131,7 +131,7 @@ impl ModEntry {
     }
 
     /// Remove the given [`ModEntry`] from the list
-    pub(crate) fn remove(self) -> Result<()> {
+    pub fn remove(self) -> Result<()> {
         let id = self.entry_id.db_id(&self.db)?;
         let profile_id = self.parent()?.id.db_id(&self.db)?;
         let entry_ids: Vec<DbId> = self
@@ -338,7 +338,7 @@ mod test {
         assert_eq!(profile.mod_entries().unwrap().len(), 6);
 
         let remove_and_check = |entry: &ModEntry| {
-            profile.remove_mod_entry(entry.clone()).unwrap();
+            entry.clone().remove().unwrap();
             let entries = profile.mod_entries().unwrap();
             assert!(!entries.contains(entry));
         };

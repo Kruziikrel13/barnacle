@@ -117,7 +117,7 @@ impl Mod {
         Ok(mod_)
     }
 
-    pub(crate) fn remove(self) -> Result<()> {
+    pub fn remove(self) -> Result<()> {
         let name = self.name()?;
         let dir = self.dir()?;
 
@@ -190,7 +190,7 @@ mod test {
 
         let dir = mod_.dir().unwrap();
 
-        game.remove_mod(mod_).unwrap();
+        mod_.remove().unwrap();
 
         assert_eq!(game.mods().unwrap().len(), 0);
         assert!(!dir.exists())

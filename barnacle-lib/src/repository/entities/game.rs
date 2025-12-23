@@ -83,7 +83,7 @@ impl Game {
             .join(self.name()?.to_snake_case()))
     }
 
-    pub(crate) fn remove(self) -> Result<()> {
+    pub fn remove(self) -> Result<()> {
         for p in self.profiles()? {
             let profile_name = p.name().unwrap();
             p.remove()
@@ -165,12 +165,6 @@ impl Game {
         Ok(profile)
     }
 
-    pub fn remove_profile(&self, profile: Profile) -> Result<()> {
-        profile.remove()?;
-
-        Ok(())
-    }
-
     pub fn profiles(&self) -> Result<Vec<Profile>> {
         Profile::list(&self.db, &self.cfg, self)
     }
@@ -197,12 +191,6 @@ impl Game {
 
     pub fn add_mod(&self, name: &str, path: Option<&Path>) -> Result<Mod> {
         Mod::add(self.db.clone(), self.cfg.clone(), self, name, path)
-    }
-
-    pub fn remove_mod(&self, mod_: Mod) -> Result<()> {
-        mod_.remove()?;
-
-        Ok(())
     }
 
     /// Insert a new [`Game`] into the database. The [`Game`] must have a unique name.
@@ -336,7 +324,7 @@ mod test {
 
         let dir = game.dir().unwrap();
 
-        repo.remove_game(game).unwrap();
+        game.remove().unwrap();
 
         // attempt to remove already removed profile and mod entries (this should panic)
         profile.remove().unwrap();

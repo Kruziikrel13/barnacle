@@ -46,12 +46,6 @@ impl Repository {
         )?)
     }
 
-    pub fn remove_game(&self, game: Game) -> Result<()> {
-        game.remove()?;
-
-        Ok(())
-    }
-
     pub fn games(&self) -> Result<Vec<Game>> {
         Ok(Game::list(self.db.clone(), self.cfg.clone())?)
     }
