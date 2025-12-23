@@ -4,6 +4,7 @@ use std::{
     path::PathBuf,
 };
 
+use super::Error;
 use agdb::{DbId, DbValue, QueryBuilder};
 use heck::ToSnakeCase;
 use tracing::debug;
@@ -147,6 +148,16 @@ impl Profile {
     }
 
     pub(crate) fn remove(self) -> Result<()> {
+        for entry in self.mod_entries()? {
+            entry
+                .remove()
+                .or_else(|err| match err {
+                    Error::StaleEntityId => Ok(()), // if id is stale assume already removed
+                    other => Err(other),
+                })
+                .expect("Unhandled mod entry removal.");
+        }
+
         let name = self.name()?;
         let dir = self.dir()?;
 
