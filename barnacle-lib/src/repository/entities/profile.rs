@@ -4,6 +4,7 @@ use std::{
     path::PathBuf,
 };
 
+use super::Error;
 use agdb::{DbId, DbValue, QueryBuilder};
 use heck::ToSnakeCase;
 use tracing::debug;
@@ -147,6 +148,22 @@ impl Profile {
     }
 
     pub(crate) fn remove(self) -> Result<()> {
+        for entry in self.mod_entries()? {
+            let entry_id = entry.entry_id;
+            entry
+                .remove()
+                .or_else(|err| match err {
+                    Error::StaleEntityId => Ok(()), // if id is stale assume already removed
+                    other => Err(other),
+                })
+                .unwrap_or_else(|err| {
+                    panic!(
+                        "Failed to remove mod entry: {:?}: {} during profile cleanup",
+                        entry_id, err
+                    )
+                })
+        }
+
         let name = self.name()?;
         let dir = self.dir()?;
 
@@ -227,11 +244,14 @@ mod test {
     }
 
     #[test]
+    #[should_panic]
     fn test_remove() {
         let repo = Repository::mock();
         let game = repo.add_game("Skyrim", DeployKind::CreationEngine).unwrap();
+        let _mod = game.add_mod("test_mod", None).unwrap();
 
         let profile = game.add_profile("Test").unwrap();
+        let mod_entry = profile.add_mod_entry(_mod).unwrap();
 
         assert_eq!(game.profiles().unwrap().len(), 1);
 
@@ -239,6 +259,8 @@ mod test {
 
         game.remove_profile(profile).unwrap();
 
+        // try removing already removed mod entry (this should panic)
+        mod_entry.remove().unwrap();
         assert!(!dir.exists());
         assert_eq!(game.profiles().unwrap().len(), 0);
     }
