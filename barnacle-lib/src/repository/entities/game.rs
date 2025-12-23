@@ -85,21 +85,30 @@ impl Game {
 
     pub(crate) fn remove(self) -> Result<()> {
         for p in self.profiles()? {
+            let profile_name = p.name().unwrap();
             p.remove()
                 .or_else(|err| match err {
                     Error::StaleEntityId => Ok(()), // if id is stale assume already removed
                     other => Err(other),
                 })
-                .expect("Unhandled profile removal error.");
+                .unwrap_or_else(|_| {
+                    panic!(
+                        "Failed to remove profile: {} during game cleanup",
+                        profile_name
+                    )
+                })
         }
 
         for m in self.mods()? {
+            let mod_name = m.name().unwrap();
             m.remove()
                 .or_else(|err| match err {
                     Error::StaleEntityId => Ok(()), // ditto
                     other => Err(other),
                 })
-                .expect("Unhandled mod removal error.");
+                .unwrap_or_else(|_| {
+                    panic!("Failed to remove mod: {} during game cleanup", mod_name)
+                })
         }
 
         let name = self.name()?;

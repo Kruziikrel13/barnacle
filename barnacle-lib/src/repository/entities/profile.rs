@@ -149,13 +149,19 @@ impl Profile {
 
     pub(crate) fn remove(self) -> Result<()> {
         for entry in self.mod_entries()? {
+            let entry_id = entry.entry_id;
             entry
                 .remove()
                 .or_else(|err| match err {
                     Error::StaleEntityId => Ok(()), // if id is stale assume already removed
                     other => Err(other),
                 })
-                .expect("Unhandled mod entry removal.");
+                .unwrap_or_else(|err| {
+                    panic!(
+                        "Failed to remove mod entry: {:?}: {} during profile cleanup",
+                        entry_id, err
+                    )
+                })
         }
 
         let name = self.name()?;
