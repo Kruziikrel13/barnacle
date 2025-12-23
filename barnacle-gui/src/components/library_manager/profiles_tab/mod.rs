@@ -119,17 +119,12 @@ impl Tab {
             Message::ProfileCreated => Action::Run(self.refresh()),
             Message::ProfileEdited => Action::Run(self.refresh()),
             Message::DeleteButtonPressed(profile) => {
-                let game = match &self.state {
-                    State::Loaded { selected_game, .. } => selected_game.clone(),
-                    _ => return Action::None,
-                };
-
                 self.state = State::Loading;
 
                 Action::Run(Task::perform(
                     async {
                         spawn_blocking(move || {
-                            game.remove_profile(profile).unwrap();
+                            profile.remove().unwrap();
                         })
                         .await
                         .unwrap()

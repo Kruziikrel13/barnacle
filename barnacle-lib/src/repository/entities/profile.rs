@@ -138,15 +138,11 @@ impl Profile {
         ModEntry::add(&self.db, &self.cfg, self, mod_)
     }
 
-    pub fn remove_mod_entry(&self, entry: ModEntry) -> Result<()> {
-        ModEntry::remove(entry)
-    }
-
     pub fn mod_entries(&self) -> Result<Vec<ModEntry>> {
         ModEntry::list(&self.db, &self.cfg, self)
     }
 
-    pub(crate) fn remove(self) -> Result<()> {
+    pub fn remove(self) -> Result<()> {
         let name = self.name()?;
         let dir = self.dir()?;
 
@@ -237,7 +233,7 @@ mod test {
 
         let dir = profile.dir().unwrap();
 
-        game.remove_profile(profile).unwrap();
+        profile.remove().unwrap();
 
         assert!(!dir.exists());
         assert_eq!(game.profiles().unwrap().len(), 0);

@@ -338,7 +338,7 @@ mod test {
         assert_eq!(profile.mod_entries().unwrap().len(), 6);
 
         let remove_and_check = |entry: &ModEntry| {
-            profile.remove_mod_entry(entry.clone()).unwrap();
+            entry.clone().remove().unwrap();
             let entries = profile.mod_entries().unwrap();
             assert!(!entries.contains(entry));
         };

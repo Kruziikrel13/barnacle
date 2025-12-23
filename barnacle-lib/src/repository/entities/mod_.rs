@@ -190,7 +190,7 @@ mod test {
 
         let dir = mod_.dir().unwrap();
 
-        game.remove_mod(mod_).unwrap();
+        mod_.remove().unwrap();
 
         assert_eq!(game.mods().unwrap().len(), 0);
         assert!(!dir.exists())

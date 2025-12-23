@@ -163,10 +163,7 @@ impl App {
                     |_| Message::GameEdited,
                 ),
                 library_manager::Action::DeleteGame(game) => Task::perform(
-                    {
-                        let repo = self.repo.clone();
-                        async move { spawn_blocking(move || repo.remove_game(game).unwrap()).await }
-                    },
+                    async move { spawn_blocking(move || game.remove().unwrap()).await },
                     |_| Message::GameDeleted,
                 ),
                 library_manager::Action::Close => {

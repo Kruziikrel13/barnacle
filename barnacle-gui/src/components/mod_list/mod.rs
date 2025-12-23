@@ -67,8 +67,7 @@ impl ModList {
             }
             Message::ModEntryDeleted(entry) => {
                 println!("Deletion of {:?}", entry);
-                // let current_profile = self.repo.clone().current_profile().unwrap();
-                // current_profile.remove_mod_entry(entry).unwrap();
+                // entry.remove().unwrap();
             }
         }
 
