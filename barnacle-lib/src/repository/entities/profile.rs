@@ -244,13 +244,14 @@ mod test {
     }
 
     #[test]
+    #[should_panic]
     fn test_remove() {
         let repo = Repository::mock();
         let game = repo.add_game("Skyrim", DeployKind::CreationEngine).unwrap();
+        let _mod = game.add_mod("test_mod", None).unwrap();
 
         let profile = game.add_profile("Test").unwrap();
-        // TODO: Add tests asserting that mod entries are recursively removed after the profile
-        // is removed
+        let mod_entry = profile.add_mod_entry(_mod).unwrap();
 
         assert_eq!(game.profiles().unwrap().len(), 1);
 
@@ -258,6 +259,8 @@ mod test {
 
         game.remove_profile(profile).unwrap();
 
+        // try removing already removed mod entry (this should panic)
+        mod_entry.remove().unwrap();
         assert!(!dir.exists());
         assert_eq!(game.profiles().unwrap().len(), 0);
     }
