@@ -131,7 +131,7 @@ impl ModEntry {
     }
 
     /// Remove the given [`ModEntry`] from the list
-    pub(crate) fn remove(self) -> Result<()> {
+    pub fn remove(self) -> Result<()> {
         let id = self.entry_id.db_id(&self.db)?;
         let profile_id = self.parent()?.id.db_id(&self.db)?;
         let entry_ids: Vec<DbId> = self

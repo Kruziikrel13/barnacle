@@ -117,7 +117,7 @@ impl Mod {
         Ok(mod_)
     }
 
-    pub(crate) fn remove(self) -> Result<()> {
+    pub fn remove(self) -> Result<()> {
         let name = self.name()?;
         let dir = self.dir()?;
 
