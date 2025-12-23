@@ -4,6 +4,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use super::Error;
 use agdb::{DbId, DbValue, QueryBuilder, QueryId};
 use heck::ToSnakeCase;
 use tracing::debug;
@@ -83,6 +84,24 @@ impl Game {
     }
 
     pub(crate) fn remove(self) -> Result<()> {
+        for p in self.profiles()? {
+            p.remove()
+                .or_else(|err| match err {
+                    Error::StaleEntityId => Ok(()), // if id is stale assume already removed
+                    other => Err(other),
+                })
+                .expect("Unhandled profile removal error.");
+        }
+
+        for m in self.mods()? {
+            m.remove()
+                .or_else(|err| match err {
+                    Error::StaleEntityId => Ok(()), // ditto
+                    other => Err(other),
+                })
+                .expect("Unhandled mod removal error.");
+        }
+
         let name = self.name()?;
         let dir = self.dir()?;
 
