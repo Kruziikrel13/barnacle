@@ -243,6 +243,8 @@ mod test {
         let game = repo.add_game("Skyrim", DeployKind::CreationEngine).unwrap();
 
         let profile = game.add_profile("Test").unwrap();
+        // TODO: Add tests asserting that mod entries are recursively removed after the profile
+        // is removed
 
         assert_eq!(game.profiles().unwrap().len(), 1);
 

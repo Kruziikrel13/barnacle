@@ -319,6 +319,8 @@ mod test {
         let repo = Repository::mock();
 
         let game = repo.add_game("Skyrim", DeployKind::CreationEngine).unwrap();
+        // TODO: Add tests asserting that profiles and mods have been recursively removed after the
+        // game is removed.
 
         assert_eq!(repo.games().unwrap().len(), 1);
 
