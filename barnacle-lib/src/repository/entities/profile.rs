@@ -149,7 +149,7 @@ impl Profile {
             entry
                 .remove()
                 .or_else(|err| match err {
-                    Error::StaleEntityId => Ok(()), // if id is stale assume already removed
+                    Error::RemovedEntity => Ok(()), // if id is stale assume already removed
                     other => Err(other),
                 })
                 .unwrap_or_else(|err| {

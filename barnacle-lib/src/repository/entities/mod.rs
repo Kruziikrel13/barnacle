@@ -29,8 +29,8 @@ pub type Result<T> = std::result::Result<T, Error>;
 pub enum Error {
     #[error("Internal database error {0}")]
     Internal(#[from] agdb::DbError),
-    #[error("This EntityId refers to a model that has been deleted")]
-    StaleEntityId,
+    #[error("This entity has been deleted")]
+    RemovedEntity,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -51,25 +51,36 @@ impl EntityId {
 
     /// Get the underlying [`DbId`]. This will check to make sure it isn't stale before returning.
     pub fn db_id(&self, db: &Db) -> Result<DbId> {
+        // TODO: Match on DbError kind once the following is completed:
+        // https://github.com/agnesoft/agdb/issues/1687
+        let not_found = format!("Id '{}' not found", self.db_id.as_index());
+
         let mut values = db
             .read()
-            .exec(QueryBuilder::select().values("uid").ids(self.db_id).query())?
+            .exec(QueryBuilder::select().values("uid").ids(self.db_id).query())
+            .map_err(|e| {
+                if e.description == not_found {
+                    Error::RemovedEntity
+                } else {
+                    Error::Internal(e)
+                }
+            })?
             .elements
             .pop()
-            .expect("successful queries should not be empty")
+            .expect("a successful query should not be empty")
             .values;
 
         let uid = values
             .pop()
-            .expect("successful queries should not be empty")
+            .expect("a database entity should have a UID field")
             .value
             .to_u64()?;
 
         if uid != self.uid.0 {
-            Err(Error::StaleEntityId)
-        } else {
-            Ok(self.db_id)
+            return Err(Error::RemovedEntity);
         }
+
+        Ok(self.db_id)
     }
 }
 

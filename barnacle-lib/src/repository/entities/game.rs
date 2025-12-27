@@ -88,7 +88,7 @@ impl Game {
             let profile_name = p.name().unwrap();
             p.remove()
                 .or_else(|err| match err {
-                    Error::StaleEntityId => Ok(()), // if id is stale assume already removed
+                    Error::RemovedEntity => Ok(()), // if id is stale assume already removed
                     other => Err(other),
                 })
                 .unwrap_or_else(|_| {
@@ -103,7 +103,7 @@ impl Game {
             let mod_name = m.name().unwrap();
             m.remove()
                 .or_else(|err| match err {
-                    Error::StaleEntityId => Ok(()), // ditto
+                    Error::RemovedEntity => Ok(()), // ditto
                     other => Err(other),
                 })
                 .unwrap_or_else(|_| {
@@ -312,7 +312,6 @@ mod test {
     }
 
     #[test]
-    #[should_panic]
     fn test_remove() {
         let repo = Repository::mock();
 
@@ -326,9 +325,10 @@ mod test {
 
         game.remove().unwrap();
 
-        // attempt to remove already removed profile and mod entries (this should panic)
-        profile.remove().unwrap();
-        _mod.remove().unwrap();
+        // Attempt to remove already removed profile and mod entries
+        assert!(matches!(profile.remove(), Err(Error::RemovedEntity)));
+        assert!(matches!(_mod.remove(), Err(Error::RemovedEntity)));
+
         assert!(!dir.exists());
         assert_eq!(repo.games().unwrap().len(), 0);
     }
