@@ -50,16 +50,16 @@ impl Repository {
         Ok(Game::list(self.db.clone(), self.cfg.clone())?)
     }
 
-    pub fn set_current_profile(&self, profile: &Profile) -> Result<()> {
-        Ok(Profile::set_current(self.db.clone(), profile)?)
+    pub fn set_active_profile(&self, profile: &Profile) -> Result<()> {
+        Ok(Profile::set_active(self.db.clone(), profile)?)
     }
 
-    pub fn current_profile(&self) -> Result<Option<Profile>> {
-        Ok(Profile::current(self.db.clone(), self.cfg.clone())?)
+    pub fn active_profile(&self) -> Result<Option<Profile>> {
+        Ok(Profile::active(self.db.clone(), self.cfg.clone())?)
     }
 
-    pub fn current_game(&self) -> Result<Option<Game>> {
-        Game::current(self)
+    pub fn active_game(&self) -> Result<Option<Game>> {
+        Game::active(self)
     }
 
     #[cfg(test)]

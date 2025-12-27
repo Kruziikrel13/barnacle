@@ -250,8 +250,8 @@ impl Game {
             .collect())
     }
 
-    pub(crate) fn current(repo: &Repository) -> crate::Result<Option<Game>> {
-        Ok(repo.current_profile()?.map(|p| p.parent()).transpose()?)
+    pub(crate) fn active(repo: &Repository) -> crate::Result<Option<Game>> {
+        Ok(repo.active_profile()?.map(|p| p.parent()).transpose()?)
     }
 
     fn get_field<T>(&self, field: &str) -> Result<T>

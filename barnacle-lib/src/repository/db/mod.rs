@@ -55,7 +55,7 @@ impl Db {
                                 "profiles",
                                 "tools",
                                 // State nodes
-                                "current_profile",
+                                "active_profile",
                                 "model_version",
                                 "next_uid",
                             ])

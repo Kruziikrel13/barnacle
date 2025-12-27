@@ -68,23 +68,23 @@ impl Profile {
             .join(self.name()?.to_snake_case()))
     }
 
-    pub(crate) fn set_current(db: Db, profile: &Profile) -> Result<()> {
+    pub(crate) fn set_active(db: Db, profile: &Profile) -> Result<()> {
         let db_id = profile.id.db_id(&db)?;
         db.write().transaction_mut(|t| {
-            // Delete existing current_profile, if it exists
+            // Delete existing active_profile, if it exists
             t.exec_mut(
                 QueryBuilder::remove()
                     .search()
-                    .from("current_profile")
+                    .from("active_profile")
                     .where_()
                     .edge()
                     .query(),
             )?;
-            // Insert a new edge from current_profile to new profile_id
+            // Insert a new edge from active_profile to new profile_id
             t.exec_mut(
                 QueryBuilder::insert()
                     .edges()
-                    .from("current_profile")
+                    .from("active_profile")
                     .to(db_id)
                     .query(),
             )?;
@@ -93,12 +93,12 @@ impl Profile {
         })
     }
 
-    pub(crate) fn current(db: Db, cfg: Cfg) -> Result<Option<Profile>> {
+    pub(crate) fn active(db: Db, cfg: Cfg) -> Result<Option<Profile>> {
         let query = db.read().exec(
             QueryBuilder::select()
                 .elements::<ProfileModel>()
                 .search()
-                .from("current_profile")
+                .from("active_profile")
                 .where_()
                 .neighbor()
                 .query(),
@@ -284,13 +284,13 @@ mod test {
     }
 
     #[test]
-    fn test_set_current() {
+    fn test_set_active() {
         let repo = Repository::mock();
 
         let game = repo.add_game("Morrowind", DeployKind::OpenMW).unwrap();
         let profile = game.add_profile("Test").unwrap();
 
-        repo.set_current_profile(&profile).unwrap();
-        repo.current_profile().unwrap();
+        repo.set_active_profile(&profile).unwrap();
+        repo.active_profile().unwrap();
     }
 }
