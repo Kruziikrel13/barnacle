@@ -31,6 +31,8 @@ pub enum Error {
     Internal(#[from] agdb::DbError),
     #[error("This entity has been deleted")]
     RemovedEntity,
+    #[error("The profile you are trying to make active is not a child of the active game")]
+    ParentGameMismatch,
 }
 
 #[derive(Debug, Clone, Copy)]

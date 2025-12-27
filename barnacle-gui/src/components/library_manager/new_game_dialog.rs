@@ -28,14 +28,15 @@ pub enum Action {
     AddGame(NewGame),
 }
 
-pub struct NewDialog {
+#[derive(Debug, Clone)]
+pub struct Dialog {
     repo: Repository,
     name: String,
     deploy_kind: Option<DeployKind>,
     deploy_kind_state: combo_box::State<DeployKind>,
 }
 
-impl NewDialog {
+impl Dialog {
     pub fn new(repo: Repository) -> (Self, Task<Message>) {
         (
             Self {

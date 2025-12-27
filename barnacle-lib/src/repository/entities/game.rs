@@ -250,8 +250,68 @@ impl Game {
             .collect())
     }
 
-    pub(crate) fn active(repo: &Repository) -> crate::Result<Option<Game>> {
-        Ok(repo.active_profile()?.map(|p| p.parent()).transpose()?)
+    /// Make this game the active one
+    pub fn make_active(&self) -> Result<()> {
+        let db_id = self.id.db_id(&self.db)?;
+
+        self.db.write().transaction_mut(|t| -> Result<()> {
+            // Delete existing active_game, if it exists
+            t.exec_mut(
+                QueryBuilder::remove()
+                    .search()
+                    .from("active_game")
+                    .where_()
+                    .edge()
+                    .query(),
+            )?;
+            // Insert a new edge from active_game to new game_id
+            t.exec_mut(
+                QueryBuilder::insert()
+                    .edges()
+                    .from("active_game")
+                    .to(db_id)
+                    .query(),
+            )?;
+
+            Ok(())
+        })?;
+
+        if let Some(first_profile) = self.profiles()?.first() {
+            first_profile.make_active()?;
+        };
+
+        Ok(())
+    }
+
+    pub(crate) fn active(db: Db, cfg: Cfg) -> Result<Option<Game>> {
+        let elements = db
+            .read()
+            .exec(
+                QueryBuilder::select()
+                    .elements::<GameModel>()
+                    .search()
+                    .from("active_game")
+                    .where_()
+                    .neighbor()
+                    .query(),
+            )?
+            .elements;
+
+        let games = Game::list(db.clone(), cfg.clone())?;
+
+        // If we have a set active game, load it
+        if let Some(active) = elements.first() {
+            return Ok(Some(Game::load(active.id, db, cfg)?));
+        }
+
+        // Bootstrap the active game if it isn't set and we have games
+        if let Some(first) = games.first() {
+            first.make_active()?;
+            return Ok(Some(first.clone()));
+        }
+
+        // No active game and no games at all
+        Ok(None)
     }
 
     fn get_field<T>(&self, field: &str) -> Result<T>

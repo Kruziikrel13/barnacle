@@ -55,6 +55,7 @@ impl Db {
                                 "profiles",
                                 "tools",
                                 // State nodes
+                                "active_game",
                                 "active_profile",
                                 "model_version",
                                 "next_uid",

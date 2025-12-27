@@ -1,9 +1,6 @@
 use std::{path::PathBuf, sync::Arc};
 
-use barnacle_lib::{
-    Repository,
-    repository::{Game, Profile},
-};
+use barnacle_lib::{Repository, repository::Profile};
 use iced::{
     Element,
     Length::Fill,
@@ -31,7 +28,6 @@ pub enum Message {
     AddModButtonPressed,
     LibraryManagerButtonPressed,
     ModAdded,
-    GameSelected(Game),
     ProfileSelected(Profile),
     GameAdded,
     GameEdited,
@@ -46,7 +42,6 @@ pub struct App {
     repo: Repository,
     title: String,
     theme: Theme,
-    game_selector: GameSelector,
     profile_selector: ProfileSelector,
     show_add_mod_dialog: bool,
     show_library_manager: bool,
@@ -62,12 +57,10 @@ impl App {
         let cfg = Arc::new(RwLock::new(GuiConfig::load()));
         let theme = cfg.read().theme();
 
-        let current_profile = repo.current_profile().unwrap();
-        let current_game = repo.current_game().unwrap();
+        let active_profile = repo.active_profile().unwrap();
+        let active_game = repo.active_game().unwrap();
 
-        let game_options = repo.games().unwrap();
-
-        let profile_options = if let Some(game) = &current_game {
+        let profile_options = if let Some(game) = &active_game {
             game.profiles().unwrap()
         } else {
             Vec::new()
@@ -82,13 +75,9 @@ impl App {
                 repo,
                 title: "Barnacle".into(),
                 theme,
-                game_selector: GameSelector {
-                    state: combo_box::State::new(game_options),
-                    selected: current_game,
-                },
                 profile_selector: ProfileSelector {
                     state: combo_box::State::new(profile_options),
-                    selected: current_profile,
+                    selected: active_profile,
                 },
                 show_add_mod_dialog: false,
                 show_library_manager: false,
@@ -121,7 +110,7 @@ impl App {
                                 // TODO: Should this just silenty fail? I guess the "Add Mod" button
                                 // won't even be enabled if there isn't a current profile but still
                                 // doesn't feel right.
-                                if let Some(profile) = repo.current_profile().unwrap() {
+                                if let Some(profile) = repo.active_profile().unwrap() {
                                     let game = profile.parent().unwrap();
 
                                     let mod_ =
@@ -151,17 +140,17 @@ impl App {
                     },
                     |_| Message::GameAdded,
                 ),
-                library_manager::Action::EditGame(edit) => Task::perform(
-                    async move {
-                        spawn_blocking(move || {
-                            edit.game.set_name(&edit.name).unwrap();
-                            edit.game.set_deploy_kind(edit.deploy_kind).unwrap();
-                        })
-                        .await
-                        .unwrap()
-                    },
-                    |_| Message::GameEdited,
-                ),
+                // library_manager::Action::EditGame(edit) => Task::perform(
+                //     async move {
+                //         spawn_blocking(move || {
+                //             edit.game.set_name(&edit.name).unwrap();
+                //             edit.game.set_deploy_kind(edit.deploy_kind).unwrap();
+                //         })
+                //         .await
+                //         .unwrap()
+                //     },
+                //     |_| Message::GameEdited,
+                // ),
                 library_manager::Action::DeleteGame(game) => Task::perform(
                     async move { spawn_blocking(move || game.remove().unwrap()).await },
                     |_| Message::GameDeleted,
@@ -180,10 +169,6 @@ impl App {
                 Task::none()
             }
             Message::ModAdded => self.mod_list.refresh().map(Message::ModList),
-            Message::GameSelected(game) => {
-                self.game_selector.selected = Some(game);
-                Task::none()
-            }
             Message::ProfileSelected(profile) => {
                 self.profile_selector.selected = Some(profile);
                 Task::none()
@@ -199,14 +184,8 @@ impl App {
         let content = column![
             // Top bar
             row![
-                text("Game:"),
-                combo_box(
-                    &self.game_selector.state,
-                    "...",
-                    self.game_selector.selected.as_ref(),
-                    Message::GameSelected
-                ),
-                button(icon("play")),
+                button("Launch game"),
+                button(icon("wrench")),
                 text("Profile:"),
                 combo_box(
                     &self.profile_selector.state,
@@ -250,11 +229,6 @@ impl App {
     pub fn theme(&self) -> Theme {
         self.theme.clone()
     }
-}
-
-struct GameSelector {
-    state: combo_box::State<Game>,
-    selected: Option<Game>,
 }
 
 struct ProfileSelector {

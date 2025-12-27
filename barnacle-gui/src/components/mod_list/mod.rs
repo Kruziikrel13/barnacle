@@ -116,7 +116,7 @@ fn list_mods(repo: &Repository) -> Task<Message> {
     Task::perform(
         async {
             spawn_blocking(move || {
-                if let Some(profile) = repo.clone().current_profile().unwrap() {
+                if let Some(profile) = repo.clone().active_profile().unwrap() {
                     profile.mod_entries().unwrap()
                 } else {
                     Vec::new()

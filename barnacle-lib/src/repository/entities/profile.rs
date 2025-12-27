@@ -58,8 +58,6 @@ impl Profile {
         Ok(())
     }
 
-    // Utility
-
     pub fn dir(&self) -> Result<PathBuf> {
         Ok(self
             .parent()?
@@ -68,9 +66,15 @@ impl Profile {
             .join(self.name()?.to_snake_case()))
     }
 
-    pub(crate) fn set_active(db: Db, profile: &Profile) -> Result<()> {
-        let db_id = profile.id.db_id(&db)?;
-        db.write().transaction_mut(|t| {
+    /// Make this profile the active one
+    pub fn make_active(&self) -> Result<()> {
+        let active_game = Game::active(self.db.clone(), self.cfg.clone())?;
+        if Some(self.parent()?) != active_game {
+            return Err(Error::ParentGameMismatch);
+        }
+
+        let db_id = self.id.db_id(&self.db)?;
+        self.db.write().transaction_mut(|t| {
             // Delete existing active_profile, if it exists
             t.exec_mut(
                 QueryBuilder::remove()
@@ -227,7 +231,10 @@ impl PartialEq for Profile {
 
 #[cfg(test)]
 mod test {
-    use crate::{Repository, repository::DeployKind};
+    use crate::{
+        Repository,
+        repository::{DeployKind, entities::Error},
+    };
 
     #[test]
     fn test_add() {
@@ -284,13 +291,33 @@ mod test {
     }
 
     #[test]
-    fn test_set_active() {
+    fn test_make_active() {
         let repo = Repository::mock();
 
         let game = repo.add_game("Morrowind", DeployKind::OpenMW).unwrap();
         let profile = game.add_profile("Test").unwrap();
 
-        repo.set_active_profile(&profile).unwrap();
-        repo.active_profile().unwrap();
+        game.make_active().unwrap();
+        profile.make_active().unwrap();
+
+        assert_eq!(repo.active_profile().unwrap().unwrap(), profile);
+        assert_eq!(repo.active_game().unwrap().unwrap(), game);
+    }
+
+    #[test]
+    fn test_make_active_game_mismatch() {
+        let repo = Repository::mock();
+
+        let morrowind = repo.add_game("Morrowind", DeployKind::OpenMW).unwrap();
+        let skyrim = repo.add_game("Skyrim", DeployKind::CreationEngine).unwrap();
+
+        let profile = morrowind.add_profile("Test").unwrap();
+
+        skyrim.make_active().unwrap();
+
+        assert!(matches!(
+            profile.make_active(),
+            Err(Error::ParentGameMismatch)
+        ))
     }
 }

@@ -244,7 +244,7 @@ pub fn load_state(repo: Repository) -> Task<Message> {
                     return State::NoGames;
                 }
 
-                let selected_game = match repo.current_game().unwrap() {
+                let selected_game = match repo.active_game().unwrap() {
                     Some(game) => game,
                     None => games.first().cloned().unwrap(),
                 };
