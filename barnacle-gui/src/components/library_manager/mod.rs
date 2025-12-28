@@ -15,8 +15,9 @@ const TAB_PADDING: u16 = 16;
 pub enum Message {
     StateChanged(State),
     TabSelected(TabId),
-    NewGameButtonPressed,
-    CloseButtonSelected,
+    AddGameButtonPressed,
+    CloseButtonPressed,
+    GameRowSelected(Game),
     // Components
     NewGameDialog(new_game_dialog::Message), // ProfilesTab(profiles_tab::Message),
 }
@@ -52,6 +53,7 @@ pub struct LibraryManager {
     repo: Repository,
     state: State,
     active_tab: TabId,
+    selected_game: Option<Game>,
     // Components
     new_game_dialog: NewGameDialog,
     // profiles_tab: profiles_tab::Tab,
@@ -67,6 +69,7 @@ impl LibraryManager {
                 repo: repo.clone(),
                 state: State::Loading,
                 active_tab: TabId::default(),
+                selected_game: None,
                 new_game_dialog: NewGameDialog {
                     dialog: new_game_dialog,
                     visible: false,
@@ -94,9 +97,13 @@ impl LibraryManager {
                 self.active_tab = id;
                 Action::None
             }
-            Message::CloseButtonSelected => Action::Close,
-            Message::NewGameButtonPressed => {
+            Message::CloseButtonPressed => Action::Close,
+            Message::AddGameButtonPressed => {
                 self.new_game_dialog.visible = true;
+                Action::None
+            }
+            Message::GameRowSelected(game) => {
+                self.selected_game = Some(game);
                 Action::None
             }
             Message::NewGameDialog(message) => match self.new_game_dialog.dialog.update(message) {
@@ -124,14 +131,17 @@ impl LibraryManager {
             State::Error(e) => text(e).into(),
             State::NoGames => column![
                 text("No games"),
-                button("New").on_press(Message::NewGameButtonPressed)
+                button(row![icon("plus"), text(" Add Game")])
+                    .on_press(Message::AddGameButtonPressed)
             ]
             .into(),
             State::Loaded { active_game, games } => column![
                 scrollable(Column::with_children(games.iter().map(|row| {
                     button(text(row.name.clone())).width(Length::Fill).into()
-                }),)),
-                button("New").on_press(Message::NewGameButtonPressed)
+                }))),
+                space::vertical(),
+                button(row![icon("plus"), text(" Add Game")])
+                    .on_press(Message::AddGameButtonPressed)
             ]
             .into(),
         };
@@ -140,7 +150,7 @@ impl LibraryManager {
             container(row![
                 text("Library Manager"),
                 space::horizontal(),
-                button(icon("close")).on_press(Message::CloseButtonSelected)
+                button(icon("close")).on_press(Message::CloseButtonPressed)
             ]),
             row![
                 column![text("Games"), games_sidebar].width(Length::FillPortion(1)),
@@ -207,7 +217,7 @@ fn load_state(repo: Repository) -> Task<Message> {
 }
 
 #[derive(Debug, Clone)]
-struct GameRow {
+pub struct GameRow {
     entity: Game,
     name: String,
 }
