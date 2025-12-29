@@ -10,10 +10,7 @@ use iced::{
 use tokio::task::spawn_blocking;
 
 use crate::{
-    components::library_manager::{
-        TAB_PADDING,
-        profiles_tab::{edit_dialog::EditDialog, new_dialog::NewDialog},
-    },
+    components::library_manager::profiles_tab::{edit_dialog::EditDialog, new_dialog::NewDialog},
     modal,
 };
 
@@ -212,8 +209,7 @@ impl Tab {
                     ),
                     row![button("New").on_press(Message::ShowNewDialog)],
                     scrollable(Column::with_children(profiles.iter().map(profile_row)))
-                ]
-                .padding(TAB_PADDING);
+                ];
 
                 if self.show_new_dialog {
                     modal(

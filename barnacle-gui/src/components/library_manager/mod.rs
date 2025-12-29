@@ -1,15 +1,14 @@
 use crate::{components::library_manager::new_game_dialog::NewGame, icons::icon, modal};
 use barnacle_lib::{Repository, repository::Game};
+use derive_more::Deref;
 use iced::{
     Element, Length, Task,
-    widget::{Column, button, column, container, row, scrollable, space, text},
+    widget::{Column, button, column, container, row, rule, scrollable, space, text},
 };
 use tokio::task::spawn_blocking;
 
 mod new_game_dialog;
 mod profiles_tab;
-
-const TAB_PADDING: u16 = 16;
 
 #[derive(Debug, Clone)]
 pub enum Message {
@@ -126,7 +125,7 @@ impl LibraryManager {
     }
 
     pub fn view(&self) -> Element<'_, Message> {
-        let games_sidebar: Element<'_, Message> = match &self.state {
+        let content: Element<'_, Message> = match &self.state {
             State::Loading => text("Loading...").into(),
             State::Error(e) => text(e).into(),
             State::NoGames => column![
@@ -135,34 +134,47 @@ impl LibraryManager {
                     .on_press(Message::AddGameButtonPressed)
             ]
             .into(),
-            State::Loaded { active_game, games } => column![
-                scrollable(Column::with_children(games.iter().map(|row| {
-                    button(text(row.name.clone())).width(Length::Fill).into()
-                }))),
-                space::vertical(),
-                button(row![icon("plus"), text(" Add Game")])
-                    .on_press(Message::AddGameButtonPressed)
-            ]
-            .into(),
+            State::Loaded { active_game, games } => {
+                let games_sidebar = column![
+                    scrollable(Column::with_children(games.iter().map(|row| {
+                        button(text(row.name.clone()))
+                            .width(Length::Fill)
+                            .style(if Some(row.entity.clone()) == self.selected_game {
+                                button::primary
+                            } else {
+                                button::subtle
+                            })
+                            .on_press(Message::GameRowSelected(row.entity.clone()))
+                            .into()
+                    }))),
+                    space::vertical(),
+                    button(row![icon("plus"), text(" Add Game")])
+                        .on_press(Message::AddGameButtonPressed)
+                ];
+
+                row![
+                    column![text("Games"), rule::horizontal(1), games_sidebar]
+                        .width(Length::FillPortion(1)),
+                    column![
+                        row![
+                            button("Profiles").on_press(Message::TabSelected(TabId::Profiles)),
+                            space::horizontal(),
+                        ],
+                        text("Tabs")
+                    ]
+                    .width(Length::FillPortion(2))
+                ]
+                .into()
+            }
         };
 
-        let content = container(column![
+        let window = container(column![
             container(row![
                 text("Library Manager"),
                 space::horizontal(),
                 button(icon("close")).on_press(Message::CloseButtonPressed)
             ]),
-            row![
-                column![text("Games"), games_sidebar].width(Length::FillPortion(1)),
-                column![
-                    row![
-                        button("Profiles").on_press(Message::TabSelected(TabId::Profiles)),
-                        space::horizontal(),
-                    ],
-                    text("Tabs")
-                ]
-                .width(Length::FillPortion(2))
-            ]
+            content
         ])
         .width(1000)
         .height(800)
@@ -171,15 +183,12 @@ impl LibraryManager {
 
         if self.new_game_dialog.visible {
             modal(
-                content,
-                self.new_game_dialog
-                    .dialog
-                    .view()
-                    .map(Message::NewGameDialog),
+                window,
+                self.new_game_dialog.view().map(Message::NewGameDialog),
                 None,
             )
         } else {
-            content
+            window
         }
     }
 }
@@ -222,8 +231,9 @@ pub struct GameRow {
     name: String,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Deref)]
 struct NewGameDialog {
+    #[deref]
     dialog: new_game_dialog::Dialog,
     visible: bool,
 }
