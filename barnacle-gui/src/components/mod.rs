@@ -1,9 +1,10 @@
 use std::{path::PathBuf, sync::Arc};
 
+use adisruption_widgets::generic_overlay::{ResizeMode, overlay_button};
 use barnacle_lib::{Repository, repository::Profile};
 use iced::{
     Element,
-    Length::Fill,
+    Length::{self, Fill},
     Task, Theme,
     widget::{button, column, combo_box, row, space, text},
 };
@@ -16,7 +17,6 @@ use crate::{
     },
     config::GuiConfig,
     icons::icon,
-    modal,
 };
 
 pub mod add_mod_dialog;
@@ -43,8 +43,6 @@ pub struct App {
     title: String,
     theme: Theme,
     profile_selector: ProfileSelector,
-    show_add_mod_dialog: bool,
-    show_library_manager: bool,
     // Components
     add_mod_dialog: AddModDialog,
     mod_list: ModList,
@@ -79,8 +77,6 @@ impl App {
                     state: combo_box::State::new(profile_options),
                     selected: active_profile,
                 },
-                show_add_mod_dialog: false,
-                show_library_manager: false,
                 add_mod_dialog,
                 mod_list,
                 library_manager,
@@ -97,12 +93,8 @@ impl App {
             Message::AddModDialog(message) => match self.add_mod_dialog.update(message) {
                 add_mod_dialog::Action::None => Task::none(),
                 add_mod_dialog::Action::Run(task) => task.map(Message::AddModDialog),
-                add_mod_dialog::Action::Cancel => {
-                    self.show_add_mod_dialog = false;
-                    Task::none()
-                }
+                add_mod_dialog::Action::Cancel => Task::none(),
                 add_mod_dialog::Action::AddMod { name, path } => {
-                    self.show_add_mod_dialog = false;
                     let repo = self.repo.clone();
                     Task::perform(
                         async {
@@ -155,19 +147,10 @@ impl App {
                     async move { spawn_blocking(move || game.remove().unwrap()).await },
                     |_| Message::GameDeleted,
                 ),
-                library_manager::Action::Close => {
-                    self.show_library_manager = false;
-                    Task::none()
-                }
+                library_manager::Action::Close => Task::none(),
             },
-            Message::AddModButtonPressed => {
-                self.show_add_mod_dialog = true;
-                Task::none()
-            }
-            Message::LibraryManagerButtonPressed => {
-                self.show_library_manager = true;
-                Task::none()
-            }
+            Message::AddModButtonPressed => Task::none(),
+            Message::LibraryManagerButtonPressed => Task::none(),
             Message::ModAdded => self.mod_list.refresh().map(Message::ModList),
             Message::ProfileSelected(profile) => {
                 self.profile_selector.selected = Some(profile);
@@ -181,7 +164,7 @@ impl App {
 
     // Render the application and pass along messages from components to update()
     pub fn view(&self) -> Element<'_, Message> {
-        let content = column![
+        column![
             // Top bar
             row![
                 button("Launch game"),
@@ -194,32 +177,26 @@ impl App {
                     Message::ProfileSelected
                 ),
                 space::horizontal(),
-                button(icon("library")).on_press(Message::LibraryManagerButtonPressed),
+                overlay_button(
+                    icon("library"),
+                    "Library Manager",
+                    self.library_manager.view().map(Message::LibraryManager)
+                )
+                .resizable(ResizeMode::Always),
                 button(icon("settings")),
                 button(icon("notifications"))
             ],
             // Action bar
-            row![button("Add Mod").on_press(Message::AddModButtonPressed)],
+            row![overlay_button(
+                "Add Mod",
+                "Add Mod",
+                self.add_mod_dialog.view().map(Message::AddModDialog)
+            )],
             // Mod list
             self.mod_list.view().map(Message::ModList),
         ]
-        .height(Fill);
-
-        if self.show_library_manager {
-            modal(
-                content,
-                self.library_manager.view().map(Message::LibraryManager),
-                None,
-            )
-        } else if self.show_add_mod_dialog {
-            modal(
-                content,
-                self.add_mod_dialog.view().map(Message::AddModDialog),
-                None,
-            )
-        } else {
-            content.into()
-        }
+        .height(Fill)
+        .into()
     }
 
     pub fn title(&self) -> String {

@@ -1,4 +1,5 @@
 use crate::{components::library_manager::new_game_dialog::NewGame, icons::icon, modal};
+use adisruption_widgets::generic_overlay::{self, overlay_button};
 use barnacle_lib::{Repository, repository::Game};
 use derive_more::Deref;
 use iced::{
@@ -125,31 +126,28 @@ impl LibraryManager {
     }
 
     pub fn view(&self) -> Element<'_, Message> {
-        let content: Element<'_, Message> = match &self.state {
+        let add_game_button = overlay_button(
+            row![icon("plus"), text(" Add Game")],
+            "Add Game",
+            self.new_game_dialog
+                .dialog
+                .view()
+                .map(Message::NewGameDialog),
+        );
+
+        match &self.state {
             State::Loading => text("Loading...").into(),
             State::Error(e) => text(e).into(),
-            State::NoGames => column![
-                text("No games"),
-                button(row![icon("plus"), text(" Add Game")])
-                    .on_press(Message::AddGameButtonPressed)
-            ]
-            .into(),
+            State::NoGames => column![text("No games"), add_game_button].into(),
             State::Loaded { active_game, games } => {
+                let game_rows = games
+                    .iter()
+                    .map(|row| game_row(row, active_game, &self.selected_game));
+
                 let games_sidebar = column![
-                    scrollable(Column::with_children(games.iter().map(|row| {
-                        button(text(row.name.clone()))
-                            .width(Length::Fill)
-                            .style(if Some(row.entity.clone()) == self.selected_game {
-                                button::primary
-                            } else {
-                                button::subtle
-                            })
-                            .on_press(Message::GameRowSelected(row.entity.clone()))
-                            .into()
-                    }))),
+                    scrollable(Column::with_children(game_rows)),
                     space::vertical(),
-                    button(row![icon("plus"), text(" Add Game")])
-                        .on_press(Message::AddGameButtonPressed)
+                    add_game_button
                 ];
 
                 row![
@@ -164,31 +162,10 @@ impl LibraryManager {
                     ]
                     .width(Length::FillPortion(2))
                 ]
+                .width(1000)
+                .height(800)
                 .into()
             }
-        };
-
-        let window = container(column![
-            container(row![
-                text("Library Manager"),
-                space::horizontal(),
-                button(icon("close")).on_press(Message::CloseButtonPressed)
-            ]),
-            content
-        ])
-        .width(1000)
-        .height(800)
-        .style(container::rounded_box)
-        .into();
-
-        if self.new_game_dialog.visible {
-            modal(
-                window,
-                self.new_game_dialog.view().map(Message::NewGameDialog),
-                None,
-            )
-        } else {
-            window
         }
     }
 }
@@ -223,6 +200,31 @@ fn load_state(repo: Repository) -> Task<Message> {
         },
         Message::StateChanged,
     )
+}
+
+// Generate a row that represents a Game
+fn game_row<'a>(
+    row: &'a GameRow,
+    active_game: &'a Game,
+    selected_game: &'a Option<Game>,
+) -> Element<'a, Message> {
+    let mut content = row![text(row.name.clone()), space::horizontal()];
+
+    if &row.entity == active_game {
+        content = content.push(icon("check"));
+    }
+
+    let style = if Some(&row.entity) == selected_game.as_ref() {
+        button::primary
+    } else {
+        button::subtle
+    };
+
+    button(content)
+        .width(Length::Fill)
+        .style(style)
+        .on_press(Message::GameRowSelected(row.entity.clone()))
+        .into()
 }
 
 #[derive(Debug, Clone)]

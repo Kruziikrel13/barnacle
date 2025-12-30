@@ -118,7 +118,6 @@ impl AddModDialog {
         .padding(20)
         .width(400)
         .height(600)
-        .style(container::rounded_box)
         .into()
     }
 }

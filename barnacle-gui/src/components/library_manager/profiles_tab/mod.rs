@@ -1,4 +1,5 @@
 use crate::icons::icon;
+use adisruption_widgets::generic_overlay::overlay_button;
 use barnacle_lib::{
     Repository,
     repository::{Game, Profile},
@@ -9,9 +10,8 @@ use iced::{
 };
 use tokio::task::spawn_blocking;
 
-use crate::{
-    components::library_manager::profiles_tab::{edit_dialog::EditDialog, new_dialog::NewDialog},
-    modal,
+use crate::components::library_manager::profiles_tab::{
+    edit_dialog::EditDialog, new_dialog::NewDialog,
 };
 
 mod edit_dialog;
@@ -21,8 +21,7 @@ mod new_dialog;
 pub enum Message {
     StateLoaded(State),
     ProfileDeleted,
-    ShowNewDialog,
-    ShowEditDialog(Profile),
+    LoadEditDialog(Profile),
     DeleteButtonPressed(Profile),
     GameSelected(Game),
     ProfileCreated,
@@ -55,8 +54,6 @@ pub struct Tab {
 
     // Widget state
     game_options: combo_box::State<Game>,
-    show_new_dialog: bool,
-    show_edit_dialog: bool,
 
     // Children
     new_dialog: NewDialog,
@@ -75,8 +72,6 @@ impl Tab {
 
                 // Widget state
                 game_options: combo_box::State::new(Vec::new()),
-                show_new_dialog: false,
-                show_edit_dialog: false,
                 new_dialog,
                 edit_dialog,
             },
@@ -129,13 +124,8 @@ impl Tab {
                     |_| Message::ProfileDeleted,
                 ))
             }
-            Message::ShowNewDialog => {
-                self.show_new_dialog = true;
-                Action::None
-            }
-            Message::ShowEditDialog(profile) => {
+            Message::LoadEditDialog(profile) => {
                 self.edit_dialog.load(profile);
-                self.show_edit_dialog = true;
                 Action::None
             }
             Message::NewDialog(message) => match &self.state {
@@ -143,7 +133,6 @@ impl Tab {
                     new_dialog::Action::None => Action::None,
                     new_dialog::Action::Run(task) => Action::Run(task.map(Message::NewDialog)),
                     new_dialog::Action::Cancel => {
-                        self.show_new_dialog = false;
                         self.new_dialog.clear();
                         Action::None
                     }
@@ -151,7 +140,6 @@ impl Tab {
                         let selected_game = selected_game.clone();
 
                         self.state = State::Loading;
-                        self.show_new_dialog = false;
                         Action::Run(Task::perform(
                             async {
                                 spawn_blocking(move || {
@@ -169,22 +157,16 @@ impl Tab {
                 State::Loaded { .. } => match self.edit_dialog.update(message) {
                     edit_dialog::Action::None => Action::None,
                     edit_dialog::Action::Run(task) => Action::Run(task.map(Message::EditDialog)),
-                    edit_dialog::Action::Cancel => {
-                        self.show_edit_dialog = false;
-                        Action::None
-                    }
-                    edit_dialog::Action::Edit { profile, name } => {
-                        self.show_edit_dialog = false;
-                        Action::Run(Task::perform(
-                            async {
-                                spawn_blocking(move || {
-                                    profile.set_name(&name).unwrap();
-                                })
-                                .await
-                            },
-                            |_| Message::ProfileEdited,
-                        ))
-                    }
+                    edit_dialog::Action::Cancel => Action::None,
+                    edit_dialog::Action::Edit { profile, name } => Action::Run(Task::perform(
+                        async {
+                            spawn_blocking(move || {
+                                profile.set_name(&name).unwrap();
+                            })
+                            .await
+                        },
+                        |_| Message::ProfileEdited,
+                    )),
                 },
                 _ => Action::None,
             },
@@ -199,35 +181,44 @@ impl Tab {
                 selected_game,
                 profiles,
                 ..
-            } => {
-                let content = column![
-                    combo_box(
-                        &self.game_options,
-                        "Select a game...",
-                        Some(selected_game),
-                        Message::GameSelected
-                    ),
-                    row![button("New").on_press(Message::ShowNewDialog)],
-                    scrollable(Column::with_children(profiles.iter().map(profile_row)))
-                ];
-
-                if self.show_new_dialog {
-                    modal(
-                        content,
-                        self.new_dialog.view().map(Message::NewDialog),
-                        None,
-                    )
-                } else if self.show_edit_dialog {
-                    modal(
-                        content,
-                        self.edit_dialog.view().map(Message::EditDialog),
-                        None,
-                    )
-                } else {
-                    content.into()
-                }
-            }
+            } => column![
+                combo_box(
+                    &self.game_options,
+                    "Select a game...",
+                    Some(selected_game),
+                    Message::GameSelected
+                ),
+                row![overlay_button(
+                    "New",
+                    "Add Profile",
+                    self.new_dialog.view().map(Message::NewDialog)
+                )],
+                scrollable(Column::with_children(
+                    profiles.iter().map(|p| self.profile_row(p))
+                ))
+            ]
+            .into(),
         }
+    }
+
+    fn profile_row<'a>(&'a self, profile: &'a Profile) -> Element<'a, Message> {
+        container(
+            row![
+                text(profile.name().unwrap()),
+                space::horizontal(),
+                overlay_button(
+                    icon("edit"),
+                    "Edit Profile",
+                    self.edit_dialog.view().map(Message::EditDialog)
+                )
+                .on_open(|_, _| Message::LoadEditDialog(profile.clone())),
+                button(icon("delete")).on_press(Message::DeleteButtonPressed(profile.clone()))
+            ]
+            .padding(12),
+        )
+        .width(Length::Fill)
+        .style(container::bordered_box)
+        .into()
     }
 }
 
@@ -257,19 +248,4 @@ pub fn load_state(repo: Repository) -> Task<Message> {
         },
         Message::StateLoaded,
     )
-}
-
-fn profile_row<'a>(profile: &Profile) -> Element<'a, Message> {
-    container(
-        row![
-            text(profile.name().unwrap()),
-            space::horizontal(),
-            button(icon("edit")).on_press(Message::ShowEditDialog(profile.clone())),
-            button(icon("delete")).on_press(Message::DeleteButtonPressed(profile.clone()))
-        ]
-        .padding(12),
-    )
-    .width(Length::Fill)
-    .style(container::bordered_box)
-    .into()
 }
