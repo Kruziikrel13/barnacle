@@ -19,7 +19,8 @@ pub enum Message {
     CloseButtonPressed,
     GameRowSelected(Game),
     // Components
-    NewGameDialog(new_game_dialog::Message), // ProfilesTab(profiles_tab::Message),
+    NewGameDialog(new_game_dialog::Message),
+    ProfilesTab(profiles_tab::Message),
 }
 
 /// Action used for communicating with the parent component
@@ -57,12 +58,12 @@ pub struct LibraryManager {
     selected_game: Option<Game>,
     // Components
     new_game_dialog: NewGameDialog,
-    // profiles_tab: profiles_tab::Tab,
+    profiles_tab: profiles_tab::Tab,
 }
 
 impl LibraryManager {
     pub fn new(repo: Repository) -> (Self, Task<Message>) {
-        // let (profiles_tab, profiles_task) = profiles_tab::Tab::new(repo.clone());
+        let profiles_tab = profiles_tab::Tab::new(repo.clone());
         let (new_game_dialog, new_game_dialog_task) = new_game_dialog::Dialog::new(repo.clone());
 
         (
@@ -75,7 +76,7 @@ impl LibraryManager {
                     dialog: new_game_dialog,
                     visible: false,
                 },
-                // profiles_tab,
+                profiles_tab,
             },
             Task::batch([
                 new_game_dialog_task.map(Message::NewGameDialog),
@@ -119,10 +120,12 @@ impl LibraryManager {
                     Action::None
                 }
             },
-            // Message::ProfilesTab(message) => match self.profiles_tab.update(message) {
-            //     profiles_tab::Action::None => Action::None,
-            //     profiles_tab::Action::Run(task) => Action::Run(task.map(Message::ProfilesTab)),
-            // },
+            Message::ProfilesTab(message) => match self.profiles_tab.update(message) {
+                profiles_tab::Action::None => Action::None,
+                profiles_tab::Action::Run(task) => Action::Run(task.map(Message::ProfilesTab)),
+                // TODO: REFRESH
+                profiles_tab::Action::Refresh => Action::None,
+            },
         }
     }
 
@@ -134,7 +137,11 @@ impl LibraryManager {
                 .dialog
                 .view()
                 .map(Message::NewGameDialog),
-        );
+        )
+        .overlay_width_dynamic(|window_width| Length::Fixed(window_width * 0.4))
+        .overlay_height_dynamic(|window_height| Length::Fixed(window_height * 0.6))
+        .hide_header()
+        .opaque(true);
 
         match &self.state {
             State::Loading => text("Loading...").into(),
@@ -151,15 +158,21 @@ impl LibraryManager {
                     add_game_button
                 ];
 
+                let tab_contents: Element<'_, Message> = match self.active_tab {
+                    TabId::Overview => text("Overview").into(),
+                    TabId::Profiles => self.profiles_tab.view().map(Message::ProfilesTab),
+                };
+
                 row![
                     column![text("Games"), rule::horizontal(1), games_sidebar]
                         .width(Length::FillPortion(1)),
                     column![
                         row![
+                            button("Overview").on_press(Message::TabSelected(TabId::Overview)),
                             button("Profiles").on_press(Message::TabSelected(TabId::Profiles)),
                             space::horizontal(),
                         ],
-                        text("Tabs")
+                        tab_contents
                     ]
                     .width(Length::FillPortion(2))
                 ]

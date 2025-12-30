@@ -1,12 +1,9 @@
 use crate::icons::icon;
 use adisruption_widgets::generic_overlay::overlay_button;
-use barnacle_lib::{
-    Repository,
-    repository::{Game, Profile},
-};
+use barnacle_lib::{Repository, repository::Profile};
 use iced::{
     Element, Length, Task,
-    widget::{Column, button, column, combo_box, container, row, scrollable, space, text},
+    widget::{Column, button, column, container, row, scrollable, space, text},
 };
 use tokio::task::spawn_blocking;
 
@@ -23,7 +20,6 @@ pub enum Message {
     ProfileDeleted,
     LoadEditDialog(Profile),
     DeleteButtonPressed(Profile),
-    GameSelected(Game),
     ProfileCreated,
     ProfileEdited,
     // Child messages
@@ -34,26 +30,19 @@ pub enum Message {
 pub enum Action {
     None,
     Run(Task<Message>),
+    Refresh,
 }
 
 #[derive(Debug, Clone)]
 pub enum State {
     Loading,
     Error(String),
-    NoGames,
-    Loaded {
-        selected_game: Game,
-        games: Vec<Game>,
-        profiles: Vec<Profile>,
-    },
+    Loaded(Vec<Profile>),
 }
 
 pub struct Tab {
     repo: Repository,
     state: State,
-
-    // Widget state
-    game_options: combo_box::State<Game>,
 
     // Children
     new_dialog: NewDialog,
@@ -61,55 +50,32 @@ pub struct Tab {
 }
 
 impl Tab {
-    pub fn new(repo: Repository) -> (Self, Task<Message>) {
+    pub fn new(repo: Repository) -> Self {
         let (new_dialog, _) = NewDialog::new();
         let (edit_dialog, _) = EditDialog::new();
 
-        (
-            Self {
-                repo: repo.clone(),
-                state: State::Loading,
+        Self {
+            repo: repo.clone(),
+            state: State::Loading,
 
-                // Widget state
-                game_options: combo_box::State::new(Vec::new()),
-                new_dialog,
-                edit_dialog,
-            },
-            load_state(repo),
-        )
-    }
-
-    pub fn refresh(&self) -> Task<Message> {
-        load_state(self.repo.clone())
+            // Widget state
+            new_dialog,
+            edit_dialog,
+        }
     }
 
     pub fn update(&mut self, message: Message) -> Action {
         match message {
             Message::StateLoaded(state) => {
-                // Update widget state
-                match &state {
-                    State::Loaded { games, .. } => {
-                        self.game_options = combo_box::State::new(games.clone());
-                    }
-                    State::NoGames => {
-                        self.game_options = combo_box::State::new(Vec::new());
-                    }
-                    _ => {}
-                }
-
                 self.state = state;
                 Action::None
             }
             Message::ProfileDeleted => {
                 self.state = State::Loading;
-                Action::Run(self.refresh())
+                Action::Refresh
             }
-            Message::GameSelected(game) => {
-                self.new_dialog.load(game.clone());
-                Action::Run(self.refresh())
-            }
-            Message::ProfileCreated => Action::Run(self.refresh()),
-            Message::ProfileEdited => Action::Run(self.refresh()),
+            Message::ProfileCreated => Action::Refresh,
+            Message::ProfileEdited => Action::Refresh,
             Message::DeleteButtonPressed(profile) => {
                 self.state = State::Loading;
 
@@ -128,30 +94,20 @@ impl Tab {
                 self.edit_dialog.load(profile);
                 Action::None
             }
-            Message::NewDialog(message) => match &self.state {
-                State::Loaded { selected_game, .. } => match self.new_dialog.update(message) {
-                    new_dialog::Action::None => Action::None,
-                    new_dialog::Action::Run(task) => Action::Run(task.map(Message::NewDialog)),
-                    new_dialog::Action::Cancel => {
-                        self.new_dialog.clear();
-                        Action::None
-                    }
-                    new_dialog::Action::Create { name } => {
-                        let selected_game = selected_game.clone();
-
-                        self.state = State::Loading;
-                        Action::Run(Task::perform(
-                            async {
-                                spawn_blocking(move || {
-                                    selected_game.add_profile(&name).unwrap();
-                                })
-                                .await
-                            },
-                            |_| Message::ProfileCreated,
-                        ))
-                    }
-                },
-                _ => Action::None,
+            Message::NewDialog(message) => match self.new_dialog.update(message) {
+                new_dialog::Action::None => Action::None,
+                new_dialog::Action::Run(task) => Action::Run(task.map(Message::NewDialog)),
+                new_dialog::Action::Cancel => {
+                    self.new_dialog.clear();
+                    Action::None
+                }
+                new_dialog::Action::Create { name } => {
+                    self.state = State::Loading;
+                    Action::Run(Task::perform(
+                        async { spawn_blocking(move || {}).await },
+                        |_| Message::ProfileCreated,
+                    ))
+                }
             },
             Message::EditDialog(message) => match &self.state {
                 State::Loaded { .. } => match self.edit_dialog.update(message) {
@@ -176,18 +132,7 @@ impl Tab {
         match &self.state {
             State::Loading => column![text("Loading...")].into(),
             State::Error(e) => column![text(e)].into(),
-            State::NoGames => text("No games found").into(),
-            State::Loaded {
-                selected_game,
-                profiles,
-                ..
-            } => column![
-                combo_box(
-                    &self.game_options,
-                    "Select a game...",
-                    Some(selected_game),
-                    Message::GameSelected
-                ),
+            State::Loaded(profiles) => column![
                 row![overlay_button(
                     "New",
                     "Add Profile",
@@ -220,32 +165,4 @@ impl Tab {
         .style(container::bordered_box)
         .into()
     }
-}
-
-pub fn load_state(repo: Repository) -> Task<Message> {
-    Task::perform(
-        async {
-            spawn_blocking(move || {
-                let games = repo.games().unwrap();
-                if games.is_empty() {
-                    return State::NoGames;
-                }
-
-                let selected_game = match repo.active_game().unwrap() {
-                    Some(game) => game,
-                    None => games.first().cloned().unwrap(),
-                };
-                let profiles = selected_game.profiles().unwrap();
-
-                State::Loaded {
-                    selected_game,
-                    games,
-                    profiles,
-                }
-            })
-            .await
-            .unwrap()
-        },
-        Message::StateLoaded,
-    )
 }

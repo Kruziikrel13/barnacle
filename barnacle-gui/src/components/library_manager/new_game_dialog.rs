@@ -108,8 +108,6 @@ impl Dialog {
             ],
         ])
         .padding(20)
-        .width(400)
-        .height(600)
         .into()
     }
 }
