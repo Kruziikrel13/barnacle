@@ -34,6 +34,7 @@ pub enum Action {
 
 #[derive(Debug, Default, Clone, Eq, PartialEq)]
 pub enum TabId {
+    Overview,
     #[default]
     Profiles,
 }
@@ -162,8 +163,6 @@ impl LibraryManager {
                     ]
                     .width(Length::FillPortion(2))
                 ]
-                .width(1000)
-                .height(800)
                 .into()
             }
         }

@@ -1,11 +1,12 @@
 use std::{path::PathBuf, sync::Arc};
 
-use adisruption_widgets::generic_overlay::{ResizeMode, overlay_button};
+use adisruption_widgets::generic_overlay::{self, ResizeMode, overlay_button};
 use barnacle_lib::{Repository, repository::Profile};
 use iced::{
     Element,
     Length::{self, Fill},
     Task, Theme,
+    advanced::widget::operate,
     widget::{button, column, combo_box, row, space, text},
 };
 use parking_lot::RwLock;
@@ -96,24 +97,28 @@ impl App {
                 add_mod_dialog::Action::Cancel => Task::none(),
                 add_mod_dialog::Action::AddMod { name, path } => {
                     let repo = self.repo.clone();
-                    Task::perform(
-                        async {
-                            spawn_blocking(move || {
-                                // TODO: Should this just silenty fail? I guess the "Add Mod" button
-                                // won't even be enabled if there isn't a current profile but still
-                                // doesn't feel right.
-                                if let Some(profile) = repo.active_profile().unwrap() {
-                                    let game = profile.parent().unwrap();
+                    Task::batch([
+                        Task::perform(
+                            async {
+                                spawn_blocking(move || {
+                                    // TODO: Should this just silenty fail? I guess the "Add Mod" button
+                                    // won't even be enabled if there isn't a current profile but still
+                                    // doesn't feel right.
+                                    if let Some(profile) = repo.active_profile().unwrap() {
+                                        let game = profile.parent().unwrap();
 
-                                    let mod_ =
-                                        game.add_mod(&name, Some(&PathBuf::from(path))).unwrap();
-                                    profile.add_mod_entry(mod_).unwrap();
-                                }
-                            })
-                            .await
-                        },
-                        |_| Message::ModAdded,
-                    )
+                                        let mod_ = game
+                                            .add_mod(&name, Some(&PathBuf::from(path)))
+                                            .unwrap();
+                                        profile.add_mod_entry(mod_).unwrap();
+                                    }
+                                })
+                                .await
+                            },
+                            |_| Message::ModAdded,
+                        ),
+                        operate(generic_overlay::close::<Message>("add_mod_dialog".into())),
+                    ])
                 }
             },
             Message::ModList(message) => self.mod_list.update(message).map(Message::ModList),
@@ -182,16 +187,25 @@ impl App {
                     "Library Manager",
                     self.library_manager.view().map(Message::LibraryManager)
                 )
+                .overlay_width_dynamic(|window_width| Length::Fixed(window_width * 0.8))
+                .overlay_height_dynamic(|window_height| Length::Fixed(window_height * 0.8))
                 .resizable(ResizeMode::Always),
                 button(icon("settings")),
                 button(icon("notifications"))
             ],
             // Action bar
-            row![overlay_button(
-                "Add Mod",
-                "Add Mod",
-                self.add_mod_dialog.view().map(Message::AddModDialog)
-            )],
+            row![
+                overlay_button(
+                    "Add Mod",
+                    "Add Mod",
+                    self.add_mod_dialog.view().map(Message::AddModDialog)
+                )
+                .overlay_width_dynamic(|window_width| Length::Fixed(window_width * 0.5))
+                .overlay_height_dynamic(|window_height| Length::Fixed(window_height * 0.6))
+                .hide_header()
+                .opaque(true)
+                .id("add_mod_overlay")
+            ],
             // Mod list
             self.mod_list.view().map(Message::ModList),
         ]
