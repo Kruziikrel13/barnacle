@@ -1,6 +1,13 @@
-use crate::{components::library_manager::new_game_dialog::NewGame, icons::icon, modal};
+use crate::{
+    components::library_manager::{new_game_dialog::NewGame, profiles_tab::new_dialog::NewProfile},
+    icons::icon,
+    modal,
+};
 use adisruption_widgets::generic_overlay::{self, overlay_button};
-use barnacle_lib::{Repository, repository::Game};
+use barnacle_lib::{
+    Repository,
+    repository::{Game, Profile},
+};
 use derive_more::Deref;
 use iced::{
     Element, Length, Task,
@@ -28,7 +35,8 @@ pub enum Message {
 pub enum Action {
     None,
     Run(Task<Message>),
-    AddGame(NewGame),
+    CreateGame(NewGame),
+    CreateProfile { game: Game, new_profile: NewProfile },
     DeleteGame(Game),
     Close,
 }
@@ -63,8 +71,8 @@ pub struct LibraryManager {
 
 impl LibraryManager {
     pub fn new(repo: Repository) -> (Self, Task<Message>) {
-        let profiles_tab = profiles_tab::Tab::new(repo.clone());
         let (new_game_dialog, new_game_dialog_task) = new_game_dialog::Dialog::new(repo.clone());
+        let profiles_tab = profiles_tab::Tab::new(repo.clone());
 
         (
             Self {
@@ -86,7 +94,12 @@ impl LibraryManager {
     }
 
     pub fn refresh(&self) -> Task<Message> {
-        load_state(self.repo.clone())
+        Task::batch([
+            load_state(self.repo.clone()),
+            self.profiles_tab
+                .refresh(&self.selected_game.clone().unwrap())
+                .map(Message::ProfilesTab),
+        ])
     }
 
     pub fn update(&mut self, message: Message) -> Action {
@@ -105,15 +118,15 @@ impl LibraryManager {
                 Action::None
             }
             Message::GameRowSelected(game) => {
-                self.selected_game = Some(game);
-                Action::None
+                self.selected_game = Some(game.clone());
+                Action::Run(self.profiles_tab.refresh(&game).map(Message::ProfilesTab))
             }
             Message::NewGameDialog(message) => match self.new_game_dialog.dialog.update(message) {
                 new_game_dialog::Action::None => Action::None,
                 new_game_dialog::Action::Run(task) => Action::Run(task.map(Message::NewGameDialog)),
                 new_game_dialog::Action::AddGame(new_game) => {
                     self.new_game_dialog.visible = false;
-                    Action::AddGame(new_game)
+                    Action::CreateGame(new_game)
                 }
                 new_game_dialog::Action::Cancel => {
                     self.new_game_dialog.visible = false;
@@ -123,8 +136,27 @@ impl LibraryManager {
             Message::ProfilesTab(message) => match self.profiles_tab.update(message) {
                 profiles_tab::Action::None => Action::None,
                 profiles_tab::Action::Run(task) => Action::Run(task.map(Message::ProfilesTab)),
-                // TODO: REFRESH
-                profiles_tab::Action::Refresh => Action::None,
+                profiles_tab::Action::Refresh => {
+                    if let Some(selected_game) = &self.selected_game {
+                        Action::Run(
+                            self.profiles_tab
+                                .refresh(&selected_game)
+                                .map(Message::ProfilesTab),
+                        )
+                    } else {
+                        Action::None
+                    }
+                }
+                profiles_tab::Action::Create(new_profile) => {
+                    if let Some(selected_game) = &self.selected_game {
+                        Action::CreateProfile {
+                            game: selected_game.clone(),
+                            new_profile,
+                        }
+                    } else {
+                        Action::None
+                    }
+                }
             },
         }
     }
@@ -158,6 +190,11 @@ impl LibraryManager {
                     add_game_button
                 ];
 
+                let tab_bar = row![
+                    button("Overview").on_press(Message::TabSelected(TabId::Overview)),
+                    button("Profiles").on_press(Message::TabSelected(TabId::Profiles)),
+                    space::horizontal(),
+                ];
                 let tab_contents: Element<'_, Message> = match self.active_tab {
                     TabId::Overview => text("Overview").into(),
                     TabId::Profiles => self.profiles_tab.view().map(Message::ProfilesTab),
@@ -166,15 +203,7 @@ impl LibraryManager {
                 row![
                     column![text("Games"), rule::horizontal(1), games_sidebar]
                         .width(Length::FillPortion(1)),
-                    column![
-                        row![
-                            button("Overview").on_press(Message::TabSelected(TabId::Overview)),
-                            button("Profiles").on_press(Message::TabSelected(TabId::Profiles)),
-                            space::horizontal(),
-                        ],
-                        tab_contents
-                    ]
-                    .width(Length::FillPortion(2))
+                    column![tab_bar, tab_contents].width(Length::FillPortion(2))
                 ]
                 .into()
             }

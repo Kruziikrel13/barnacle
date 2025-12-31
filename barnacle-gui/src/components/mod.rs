@@ -31,6 +31,7 @@ pub enum Message {
     ModAdded,
     ProfileSelected(Profile),
     GameAdded,
+    ProfileAdded,
     GameEdited,
     GameDeleted,
     // Components
@@ -125,7 +126,7 @@ impl App {
             Message::LibraryManager(message) => match self.library_manager.update(message) {
                 library_manager::Action::None => Task::none(),
                 library_manager::Action::Run(task) => task.map(Message::LibraryManager),
-                library_manager::Action::AddGame(new_game) => Task::perform(
+                library_manager::Action::CreateGame(new_game) => Task::perform(
                     {
                         let repo = self.repo.clone();
                         async move {
@@ -136,6 +137,17 @@ impl App {
                         }
                     },
                     |_| Message::GameAdded,
+                ),
+                library_manager::Action::CreateProfile { game, new_profile } => Task::perform(
+                    {
+                        let game = game.clone();
+                        async {
+                            spawn_blocking(move || game.add_profile(&new_profile.name))
+                                .await
+                                .unwrap()
+                        }
+                    },
+                    |_| Message::ProfileAdded,
                 ),
                 // library_manager::Action::EditGame(edit) => Task::perform(
                 //     async move {
@@ -161,9 +173,11 @@ impl App {
                 self.profile_selector.selected = Some(profile);
                 Task::none()
             }
-            Message::GameAdded | Message::GameEdited | Message::GameDeleted => {
-                self.library_manager.refresh().map(Message::LibraryManager)
-            }
+            Message::GameAdded
+            | Message::GameEdited
+            | Message::GameDeleted
+            // TODO: Update profile selector
+            | Message::ProfileAdded => self.library_manager.refresh().map(Message::LibraryManager),
         }
     }
 

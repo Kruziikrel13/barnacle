@@ -1,6 +1,9 @@
-use crate::icons::icon;
+use crate::{components::library_manager::profiles_tab::new_dialog::NewProfile, icons::icon};
 use adisruption_widgets::generic_overlay::overlay_button;
-use barnacle_lib::{Repository, repository::Profile};
+use barnacle_lib::{
+    Repository,
+    repository::{Game, Profile},
+};
 use iced::{
     Element, Length, Task,
     widget::{Column, button, column, container, row, scrollable, space, text},
@@ -11,12 +14,12 @@ use crate::components::library_manager::profiles_tab::{
     edit_dialog::EditDialog, new_dialog::NewDialog,
 };
 
-mod edit_dialog;
-mod new_dialog;
+pub mod edit_dialog;
+pub mod new_dialog;
 
 #[derive(Debug, Clone)]
 pub enum Message {
-    StateLoaded(State),
+    StateChanged(State),
     ProfileDeleted,
     LoadEditDialog(Profile),
     DeleteButtonPressed(Profile),
@@ -31,6 +34,7 @@ pub enum Action {
     None,
     Run(Task<Message>),
     Refresh,
+    Create(NewProfile),
 }
 
 #[derive(Debug, Clone)]
@@ -64,9 +68,23 @@ impl Tab {
         }
     }
 
+    pub fn refresh(&self, game: &Game) -> Task<Message> {
+        let game = game.clone();
+        Task::perform(
+            {
+                async {
+                    spawn_blocking(move || State::Loaded(game.profiles().unwrap()))
+                        .await
+                        .unwrap()
+                }
+            },
+            Message::StateChanged,
+        )
+    }
+
     pub fn update(&mut self, message: Message) -> Action {
         match message {
-            Message::StateLoaded(state) => {
+            Message::StateChanged(state) => {
                 self.state = state;
                 Action::None
             }
@@ -101,12 +119,9 @@ impl Tab {
                     self.new_dialog.clear();
                     Action::None
                 }
-                new_dialog::Action::Create { name } => {
+                new_dialog::Action::Create(new_profile) => {
                     self.state = State::Loading;
-                    Action::Run(Task::perform(
-                        async { spawn_blocking(move || {}).await },
-                        |_| Message::ProfileCreated,
-                    ))
+                    Action::Create(new_profile)
                 }
             },
             Message::EditDialog(message) => match &self.state {

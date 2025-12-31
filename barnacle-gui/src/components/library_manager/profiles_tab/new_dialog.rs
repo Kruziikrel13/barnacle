@@ -1,4 +1,3 @@
-use barnacle_lib::repository::Game;
 use iced::{
     Element, Task,
     widget::{button, column, container, row, space, text, text_input},
@@ -15,28 +14,21 @@ pub enum Action {
     None,
     Run(Task<Message>),
     Cancel,
-    Create { name: String },
+    Create(NewProfile),
 }
 
 pub struct NewDialog {
-    game: Option<Game>,
     name: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct NewProfile {
+    pub name: String,
 }
 
 impl NewDialog {
     pub fn new() -> (Self, Task<Message>) {
-        (
-            Self {
-                game: None,
-                name: "".into(),
-            },
-            Task::none(),
-        )
-    }
-
-    pub fn load(&mut self, game: Game) {
-        self.game = Some(game);
-        self.name = "".into();
+        (Self { name: "".into() }, Task::none())
     }
 
     /// Reset the dialog state
@@ -56,7 +48,7 @@ impl NewDialog {
 
                 self.clear();
 
-                Action::Create { name }
+                Action::Create(NewProfile { name })
             }
         }
     }
