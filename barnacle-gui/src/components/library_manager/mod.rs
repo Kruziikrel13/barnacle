@@ -1,13 +1,9 @@
 use crate::{
     components::library_manager::{new_game_dialog::NewGame, profiles_tab::new_dialog::NewProfile},
     icons::icon,
-    modal,
 };
-use adisruption_widgets::generic_overlay::{self, overlay_button};
-use barnacle_lib::{
-    Repository,
-    repository::{Game, Profile},
-};
+use adisruption_widgets::generic_overlay::overlay_button;
+use barnacle_lib::{Repository, repository::Game};
 use derive_more::Deref;
 use iced::{
     Element, Length, Task,
@@ -22,7 +18,6 @@ pub mod profiles_tab;
 pub enum Message {
     StateChanged(State),
     TabSelected(TabId),
-    AddGameButtonPressed,
     CloseButtonPressed,
     GameRowSelected(Game),
     // Components
@@ -65,13 +60,13 @@ pub struct LibraryManager {
     active_tab: TabId,
     selected_game: Option<Game>,
     // Components
-    new_game_dialog: NewGameDialog,
+    new_game_dialog: new_game_dialog::Dialog,
     profiles_tab: profiles_tab::Tab,
 }
 
 impl LibraryManager {
     pub fn new(repo: Repository) -> (Self, Task<Message>) {
-        let (new_game_dialog, new_game_dialog_task) = new_game_dialog::Dialog::new(repo.clone());
+        let (new_game_dialog, new_game_dialog_task) = new_game_dialog::Dialog::new();
         let profiles_tab = profiles_tab::Tab::new(repo.clone());
 
         (
@@ -80,10 +75,7 @@ impl LibraryManager {
                 state: State::Loading,
                 active_tab: TabId::default(),
                 selected_game: None,
-                new_game_dialog: NewGameDialog {
-                    dialog: new_game_dialog,
-                    visible: false,
-                },
+                new_game_dialog,
                 profiles_tab,
             },
             Task::batch([
@@ -125,25 +117,14 @@ impl LibraryManager {
                 Action::None
             }
             Message::CloseButtonPressed => Action::Close,
-            Message::AddGameButtonPressed => {
-                self.new_game_dialog.visible = true;
-                Action::None
-            }
             Message::GameRowSelected(game) => {
                 self.selected_game = Some(game.clone());
                 Action::Run(self.profiles_tab.refresh(&game).map(Message::ProfilesTab))
             }
-            Message::NewGameDialog(message) => match self.new_game_dialog.dialog.update(message) {
+            Message::NewGameDialog(message) => match self.new_game_dialog.update(message) {
                 new_game_dialog::Action::None => Action::None,
                 new_game_dialog::Action::Run(task) => Action::Run(task.map(Message::NewGameDialog)),
-                new_game_dialog::Action::AddGame(new_game) => {
-                    self.new_game_dialog.visible = false;
-                    Action::CreateGame(new_game)
-                }
-                new_game_dialog::Action::Cancel => {
-                    self.new_game_dialog.visible = false;
-                    Action::None
-                }
+                new_game_dialog::Action::CreateGame(new_game) => Action::CreateGame(new_game),
             },
             Message::ProfilesTab(message) => match self.profiles_tab.update(message) {
                 profiles_tab::Action::None => Action::None,
@@ -177,15 +158,13 @@ impl LibraryManager {
         let add_game_button = overlay_button(
             row![icon("plus"), text(" Add Game")],
             "Add Game",
-            self.new_game_dialog
-                .dialog
-                .view()
-                .map(Message::NewGameDialog),
+            self.new_game_dialog.view().map(Message::NewGameDialog),
         )
         .overlay_width_dynamic(|window_width| Length::Fixed(window_width * 0.4))
         .overlay_height_dynamic(|window_height| Length::Fixed(window_height * 0.6))
         .hide_header()
-        .opaque(true);
+        .opaque(true)
+        .id(new_game_dialog::ID);
 
         match &self.state {
             State::Loading => text("Loading...").into(),
@@ -284,11 +263,4 @@ fn game_row<'a>(
 pub struct GameRow {
     entity: Game,
     name: String,
-}
-
-#[derive(Debug, Clone, Deref)]
-struct NewGameDialog {
-    #[deref]
-    dialog: new_game_dialog::Dialog,
-    visible: bool,
 }

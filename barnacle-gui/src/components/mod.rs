@@ -125,8 +125,8 @@ impl App {
             Message::LibraryManager(message) => match self.library_manager.update(message) {
                 library_manager::Action::None => Task::none(),
                 library_manager::Action::Run(task) => task.map(Message::LibraryManager),
-                library_manager::Action::CreateGame(new_game) => Task::perform(
-                    {
+                library_manager::Action::CreateGame(new_game) => Task::batch([
+                    Task::perform({
                         let repo = self.repo.clone();
                         async move {
                             spawn_blocking(move || {
@@ -136,7 +136,9 @@ impl App {
                         }
                     },
                     |_| Message::GameAdded,
-                ),
+                    ),
+                    operate(generic_overlay::close::<Message>(library_manager::new_game_dialog::ID.into())),
+                ]),
                 library_manager::Action::CreateProfile { game, new_profile } => Task::batch([
                     Task::perform({
                         let game = game.clone();

@@ -1,9 +1,13 @@
-use barnacle_lib::{Repository, repository::DeployKind};
+use adisruption_widgets::generic_overlay;
+use barnacle_lib::repository::DeployKind;
 use iced::{
     Element, Task,
+    advanced::widget::operate,
     widget::{button, column, combo_box, container, row, space, text, text_input},
 };
 use strum::IntoEnumIterator;
+
+pub const ID: &str = "new_game_dialog";
 
 #[derive(Debug, Clone)]
 pub enum Message {
@@ -24,23 +28,20 @@ pub struct NewGame {
 pub enum Action {
     None,
     Run(Task<Message>),
-    Cancel,
-    AddGame(NewGame),
+    CreateGame(NewGame),
 }
 
 #[derive(Debug, Clone)]
 pub struct Dialog {
-    repo: Repository,
     name: String,
     deploy_kind: Option<DeployKind>,
     deploy_kind_state: combo_box::State<DeployKind>,
 }
 
 impl Dialog {
-    pub fn new(repo: Repository) -> (Self, Task<Message>) {
+    pub fn new() -> (Self, Task<Message>) {
         (
             Self {
-                repo,
                 name: "".into(),
                 deploy_kind: None,
                 deploy_kind_state: combo_box::State::new(DeployKind::iter().collect()),
@@ -67,7 +68,7 @@ impl Dialog {
             }
             Message::CancelPressed => {
                 self.clear();
-                Action::Cancel
+                Action::Run(operate(generic_overlay::close::<Message>(ID.into())))
             }
             Message::CreatePressed => {
                 let name = self.name.clone();
@@ -75,7 +76,7 @@ impl Dialog {
 
                 self.clear();
 
-                Action::AddGame(NewGame {
+                Action::CreateGame(NewGame {
                     name,
                     // TODO: Make deploy kind required instead of crashing w/o it
                     deploy_kind,
