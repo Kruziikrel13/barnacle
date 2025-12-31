@@ -1,13 +1,17 @@
 use std::env;
 
+use adisruption_widgets::generic_overlay;
 use barnacle_lib::Repository;
 use iced::{
     Element, Task,
+    advanced::widget::operate,
     widget::{button, column, container, row, space, text_input},
 };
 use rfd::AsyncFileDialog;
 
 use crate::icons::icon;
+
+pub const ID: &str = "add_mod_overlay";
 
 #[derive(Debug, Clone)]
 pub enum Message {
@@ -24,7 +28,6 @@ pub enum Message {
 pub enum Action {
     None,
     Run(Task<Message>),
-    Cancel,
     AddMod { name: String, path: String },
 }
 
@@ -87,7 +90,7 @@ impl AddModDialog {
             }
             Message::CancelButtonPressed => {
                 self.clear();
-                Action::Cancel
+                Action::Run(operate(generic_overlay::close::<Message>(ID.into())))
             }
             Message::AddButtonPressed => Action::AddMod {
                 name: self.name.clone(),

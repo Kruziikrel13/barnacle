@@ -15,8 +15,8 @@ use iced::{
 };
 use tokio::task::spawn_blocking;
 
-mod new_game_dialog;
-mod profiles_tab;
+pub mod new_game_dialog;
+pub mod profiles_tab;
 
 #[derive(Debug, Clone)]
 pub enum Message {
@@ -105,21 +105,20 @@ impl LibraryManager {
     pub fn update(&mut self, message: Message) -> Action {
         match message {
             Message::StateChanged(state) => {
-                self.state = state;
-                self.state = state.clone();
-
+                let mut action = Action::None;
                 if let State::Loaded { active_game, .. } = &state
                     && self.selected_game.is_none()
                 {
                     self.selected_game = Some(active_game.clone());
-                    return Action::Run(
+                    action = Action::Run(
                         self.profiles_tab
                             .refresh(active_game)
                             .map(Message::ProfilesTab),
                     );
                 }
 
-                Action::None
+                self.state = state;
+                action
             }
             Message::TabSelected(id) => {
                 self.active_tab = id;
@@ -153,7 +152,7 @@ impl LibraryManager {
                     if let Some(selected_game) = &self.selected_game {
                         Action::Run(
                             self.profiles_tab
-                                .refresh(&selected_game)
+                                .refresh(selected_game)
                                 .map(Message::ProfilesTab),
                         )
                     } else {

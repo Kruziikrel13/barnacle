@@ -1,7 +1,11 @@
+use adisruption_widgets::generic_overlay;
 use iced::{
     Element, Task,
+    advanced::widget::operate,
     widget::{button, column, container, row, space, text, text_input},
 };
+
+pub const ID: &str = "new_profile_dialog";
 
 #[derive(Debug, Clone)]
 pub enum Message {
@@ -13,7 +17,6 @@ pub enum Message {
 pub enum Action {
     None,
     Run(Task<Message>),
-    Cancel,
     Create(NewProfile),
 }
 
@@ -42,7 +45,10 @@ impl NewDialog {
                 self.name = content;
                 Action::None
             }
-            Message::CancelPressed => Action::Cancel,
+            Message::CancelPressed => {
+                self.clear();
+                Action::Run(operate(generic_overlay::close::<Message>(ID.into())))
+            }
             Message::CreatePressed => {
                 let name = self.name.clone();
 
@@ -67,9 +73,6 @@ impl NewDialog {
             ],
         ])
         .padding(20)
-        .width(400)
-        .height(600)
-        .style(container::rounded_box)
         .into()
     }
 }

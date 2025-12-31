@@ -95,7 +95,6 @@ impl App {
             Message::AddModDialog(message) => match self.add_mod_dialog.update(message) {
                 add_mod_dialog::Action::None => Task::none(),
                 add_mod_dialog::Action::Run(task) => task.map(Message::AddModDialog),
-                add_mod_dialog::Action::Cancel => Task::none(),
                 add_mod_dialog::Action::AddMod { name, path } => {
                     let repo = self.repo.clone();
                     Task::batch([
@@ -118,7 +117,7 @@ impl App {
                             },
                             |_| Message::ModAdded,
                         ),
-                        operate(generic_overlay::close::<Message>("add_mod_dialog".into())),
+                        operate(generic_overlay::close::<Message>(add_mod_dialog::ID.into())),
                     ])
                 }
             },
@@ -138,17 +137,19 @@ impl App {
                     },
                     |_| Message::GameAdded,
                 ),
-                library_manager::Action::CreateProfile { game, new_profile } => Task::perform(
-                    {
+                library_manager::Action::CreateProfile { game, new_profile } => Task::batch([
+                    Task::perform({
                         let game = game.clone();
                         async {
-                            spawn_blocking(move || game.add_profile(&new_profile.name))
+                            spawn_blocking(move || game.add_profile(&new_profile.name).unwrap())
                                 .await
                                 .unwrap()
                         }
                     },
                     |_| Message::ProfileAdded,
-                ),
+                    ),
+                    operate(generic_overlay::close::<Message>(library_manager::profiles_tab::new_dialog::ID.into())),
+                ]),
                 // library_manager::Action::EditGame(edit) => Task::perform(
                 //     async move {
                 //         spawn_blocking(move || {
@@ -218,7 +219,7 @@ impl App {
                 .overlay_height_dynamic(|window_height| Length::Fixed(window_height * 0.6))
                 .hide_header()
                 .opaque(true)
-                .id("add_mod_overlay")
+                .id(add_mod_dialog::ID)
             ],
             // Mod list
             self.mod_list.view().map(Message::ModList),
