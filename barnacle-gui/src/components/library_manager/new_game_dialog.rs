@@ -84,13 +84,13 @@ impl Dialog {
         container(column![
             row![
                 text("Name: "),
-                text_input("Name", &self.name).on_input(Message::NameInput),
+                text_input("...", &self.name).on_input(Message::NameInput),
             ],
             row![
                 text("Deploy kind: "),
                 combo_box(
                     &self.deploy_kind_state,
-                    "Select a deploy kind",
+                    "...",
                     self.deploy_kind.as_ref(),
                     Message::DeployKindSelected
                 ),

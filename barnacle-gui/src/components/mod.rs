@@ -2,6 +2,7 @@ use std::{path::PathBuf, sync::Arc};
 
 use adisruption_widgets::generic_overlay::{self, ResizeMode, overlay_button};
 use barnacle_lib::{Repository, repository::Profile};
+use derive_more::{Deref, DerefMut};
 use iced::{
     Element,
     Length::{self, Fill},
@@ -26,12 +27,14 @@ pub mod mod_list;
 
 #[derive(Debug, Clone)]
 pub enum Message {
+    StateChanged(State),
     AddModButtonPressed,
     LibraryManagerButtonPressed,
     ModAdded,
     ProfileSelected(Profile),
     GameAdded,
     ProfileAdded,
+    ProfileActivated,
     GameEdited,
     GameDeleted,
     // Components
@@ -40,15 +43,27 @@ pub enum Message {
     LibraryManager(library_manager::Message),
 }
 
+#[derive(Debug, Clone)]
+pub enum State {
+    Loading,
+    Error(String),
+    NoGames,
+    Loaded {
+        active_profile: Option<Profile>,
+        profiles: Vec<Profile>,
+    },
+}
+
 pub struct App {
     repo: Repository,
+    state: State,
     title: String,
     theme: Theme,
     profile_selector: ProfileSelector,
     // Components
     add_mod_dialog: AddModDialog,
     mod_list: ModList,
-    library_manager: LibraryManager,
+    library_manager: LibraryManagerOverlay,
 }
 
 impl App {
@@ -57,41 +72,55 @@ impl App {
         let cfg = Arc::new(RwLock::new(GuiConfig::load()));
         let theme = cfg.read().theme();
 
-        let active_profile = repo.active_profile().unwrap();
-        let active_game = repo.active_game().unwrap();
-
-        let profile_options = if let Some(game) = &active_game {
-            game.profiles().unwrap()
-        } else {
-            Vec::new()
-        };
-
         let (add_mod_dialog, _add_mod_dialog_class) = AddModDialog::new(repo.clone());
         let (mod_list, mod_list_task) = ModList::new(repo.clone(), cfg.clone());
         let (library_manager, library_manager_task) = LibraryManager::new(repo.clone());
 
         (
             Self {
-                repo,
+                repo: repo.clone(),
+                state: State::Loading,
                 title: "Barnacle".into(),
                 theme,
                 profile_selector: ProfileSelector {
-                    state: combo_box::State::new(profile_options),
-                    selected: active_profile,
+                    state: combo_box::State::new(Vec::new()),
+                    selected: None,
                 },
                 add_mod_dialog,
                 mod_list,
-                library_manager,
+                library_manager: LibraryManagerOverlay {
+                    content: library_manager,
+                    visible: false,
+                },
             },
             Task::batch([
                 mod_list_task.map(Message::ModList),
                 library_manager_task.map(Message::LibraryManager),
+                load_state(repo.clone()),
             ]),
         )
     }
 
+    pub fn refresh(&self) -> Task<Message> {
+        load_state(self.repo.clone())
+    }
+
     pub fn update(&mut self, message: Message) -> Task<Message> {
         match message {
+            Message::StateChanged(state) => {
+                self.state = state;
+
+                if let State::Loaded {
+                    active_profile,
+                    profiles,
+                } = &self.state
+                {
+                    self.profile_selector.state = combo_box::State::new(profiles.clone());
+                    self.profile_selector.selected = active_profile.clone();
+                }
+
+                Task::none()
+            }
             Message::AddModDialog(message) => match self.add_mod_dialog.update(message) {
                 add_mod_dialog::Action::None => Task::none(),
                 add_mod_dialog::Action::Run(task) => task.map(Message::AddModDialog),
@@ -126,31 +155,37 @@ impl App {
                 library_manager::Action::None => Task::none(),
                 library_manager::Action::Run(task) => task.map(Message::LibraryManager),
                 library_manager::Action::CreateGame(new_game) => Task::batch([
-                    Task::perform({
-                        let repo = self.repo.clone();
-                        async move {
-                            spawn_blocking(move || {
-                                repo.add_game(&new_game.name, new_game.deploy_kind)
-                            })
-                            .await
-                        }
-                    },
-                    |_| Message::GameAdded,
+                    Task::perform(
+                        {
+                            let repo = self.repo.clone();
+                            async move {
+                                spawn_blocking(move || {
+                                    repo.add_game(&new_game.name, new_game.deploy_kind)
+                                })
+                                .await
+                            }
+                        },
+                        |_| Message::GameAdded,
                     ),
-                    operate(generic_overlay::close::<Message>(library_manager::new_game_dialog::ID.into())),
+                    operate(generic_overlay::close::<Message>(
+                        library_manager::new_game_dialog::ID.into(),
+                    )),
                 ]),
                 library_manager::Action::CreateProfile { game, new_profile } => Task::batch([
-                    Task::perform({
-                        let game = game.clone();
-                        async {
-                            spawn_blocking(move || game.add_profile(&new_profile.name).unwrap())
-                                .await
-                                .unwrap()
-                        }
-                    },
-                    |_| Message::ProfileAdded,
+                    Task::perform(
+                        {
+                            let game = game.clone();
+                            async {
+                                spawn_blocking(move || game.add_profile(&new_profile.name).unwrap())
+                                    .await
+                                    .unwrap()
+                            }
+                        },
+                        |_| Message::ProfileAdded,
                     ),
-                    operate(generic_overlay::close::<Message>(library_manager::profiles_tab::new_dialog::ID.into())),
+                    operate(generic_overlay::close::<Message>(
+                        library_manager::profiles_tab::new_dialog::ID.into(),
+                    )),
                 ]),
                 // library_manager::Action::EditGame(edit) => Task::perform(
                 //     async move {
@@ -173,14 +208,26 @@ impl App {
             Message::LibraryManagerButtonPressed => Task::none(),
             Message::ModAdded => self.mod_list.refresh().map(Message::ModList),
             Message::ProfileSelected(profile) => {
-                self.profile_selector.selected = Some(profile);
-                Task::none()
+                self.profile_selector.selected = Some(profile.clone());
+                Task::perform(
+                    async {
+                        spawn_blocking(move || {
+                            profile.make_active().unwrap();
+                        })
+                        .await
+                        .unwrap()
+                    },
+                    |_| Message::ProfileActivated,
+                )
             }
-            Message::GameAdded
-            | Message::GameEdited
-            | Message::GameDeleted
-            // TODO: Update profile selector
-            | Message::ProfileAdded => self.library_manager.refresh().map(Message::LibraryManager),
+            Message::ProfileAdded => Task::batch([
+                self.refresh(),
+                self.library_manager.refresh().map(Message::LibraryManager),
+            ]),
+            Message::ProfileActivated => self.refresh(),
+            Message::GameAdded | Message::GameEdited | Message::GameDeleted => {
+                self.library_manager.refresh().map(Message::LibraryManager)
+            }
         }
     }
 
@@ -239,7 +286,37 @@ impl App {
     }
 }
 
+fn load_state(repo: Repository) -> Task<Message> {
+    let repo = repo.clone();
+    Task::perform(
+        async {
+            spawn_blocking(move || {
+                if let Some(active_game) = repo.active_game().unwrap() {
+                    State::Loaded {
+                        active_profile: repo.active_profile().unwrap(),
+                        profiles: active_game.profiles().unwrap(),
+                    }
+                } else {
+                    State::NoGames
+                }
+            })
+            .await
+            .unwrap()
+        },
+        Message::StateChanged,
+    )
+}
+
+#[derive(Debug)]
 struct ProfileSelector {
     state: combo_box::State<Profile>,
     selected: Option<Profile>,
+}
+
+#[derive(Deref, DerefMut)]
+struct LibraryManagerOverlay {
+    #[deref]
+    #[deref_mut]
+    content: LibraryManager,
+    visible: bool,
 }

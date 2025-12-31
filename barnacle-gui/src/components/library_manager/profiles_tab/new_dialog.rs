@@ -63,7 +63,7 @@ impl NewDialog {
         container(column![
             row![
                 text("Name: "),
-                text_input("Name", &self.name).on_input(Message::NameInput),
+                text_input("...", &self.name).on_input(Message::NameInput),
             ],
             space::vertical(),
             row![

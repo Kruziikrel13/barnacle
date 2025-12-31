@@ -23,7 +23,6 @@ pub enum Message {
     AddButtonPressed,
 }
 
-/// Action used for communicating with the parent component
 #[derive(Debug)]
 pub enum Action {
     None,
