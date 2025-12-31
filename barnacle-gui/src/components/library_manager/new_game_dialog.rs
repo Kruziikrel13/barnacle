@@ -15,7 +15,6 @@ pub enum Message {
     DeployKindSelected(DeployKind),
     CancelPressed,
     CreatePressed,
-    GameCreated,
 }
 
 #[derive(Debug)]
@@ -76,13 +75,8 @@ impl Dialog {
 
                 self.clear();
 
-                Action::CreateGame(NewGame {
-                    name,
-                    // TODO: Make deploy kind required instead of crashing w/o it
-                    deploy_kind,
-                })
+                Action::CreateGame(NewGame { name, deploy_kind })
             }
-            Message::GameCreated => Action::None,
         }
     }
 
@@ -105,10 +99,14 @@ impl Dialog {
             row![
                 space::horizontal(),
                 button("Cancel").on_press(Message::CancelPressed),
-                button("Create").on_press(Message::CreatePressed),
+                button("Create").on_press_maybe(self.validate().then_some(Message::CreatePressed)),
             ],
         ])
         .padding(20)
         .into()
+    }
+
+    fn validate(&self) -> bool {
+        !self.name.is_empty() && self.deploy_kind.is_some()
     }
 }

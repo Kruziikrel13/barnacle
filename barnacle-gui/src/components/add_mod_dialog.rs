@@ -115,12 +115,16 @@ impl AddModDialog {
             row![
                 space::horizontal(),
                 button("Cancel").on_press(Message::CancelButtonPressed),
-                button("Add").on_press(Message::AddButtonPressed)
+                button("Add").on_press_maybe(self.validate().then_some(Message::AddButtonPressed))
             ]
         ])
         .padding(20)
         .width(400)
         .height(600)
         .into()
+    }
+
+    fn validate(&self) -> bool {
+        !self.name.is_empty() && !self.path.is_empty()
     }
 }

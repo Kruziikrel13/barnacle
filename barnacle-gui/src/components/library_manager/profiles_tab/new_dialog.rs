@@ -69,10 +69,14 @@ impl NewDialog {
             row![
                 space::horizontal(),
                 button("Cancel").on_press(Message::CancelPressed),
-                button("Create").on_press(Message::CreatePressed),
+                button("Create").on_press_maybe(self.validate().then_some(Message::CreatePressed)),
             ],
         ])
         .padding(20)
         .into()
+    }
+
+    fn validate(&self) -> bool {
+        !self.name.is_empty()
     }
 }
