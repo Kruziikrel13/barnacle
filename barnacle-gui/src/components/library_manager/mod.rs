@@ -106,6 +106,19 @@ impl LibraryManager {
         match message {
             Message::StateChanged(state) => {
                 self.state = state;
+                self.state = state.clone();
+
+                if let State::Loaded { active_game, .. } = &state
+                    && self.selected_game.is_none()
+                {
+                    self.selected_game = Some(active_game.clone());
+                    return Action::Run(
+                        self.profiles_tab
+                            .refresh(active_game)
+                            .map(Message::ProfilesTab),
+                    );
+                }
+
                 Action::None
             }
             Message::TabSelected(id) => {
