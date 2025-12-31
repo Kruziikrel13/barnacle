@@ -4,10 +4,9 @@ use crate::{
 };
 use adisruption_widgets::generic_overlay::overlay_button;
 use barnacle_lib::{Repository, repository::Game};
-use derive_more::Deref;
 use iced::{
     Element, Length, Task,
-    widget::{Column, button, column, container, row, rule, scrollable, space, text},
+    widget::{Column, button, column, row, rule, scrollable, space, text},
 };
 use tokio::task::spawn_blocking;
 
@@ -176,25 +175,31 @@ impl LibraryManager {
                     .map(|row| game_row(row, active_game, &self.selected_game));
 
                 let games_sidebar = column![
+                    text("Games"),
+                    rule::horizontal(1),
                     scrollable(Column::with_children(game_rows)),
                     space::vertical(),
                     add_game_button
                 ];
 
-                let tab_bar = row![
-                    button("Overview").on_press(Message::TabSelected(TabId::Overview)),
-                    button("Profiles").on_press(Message::TabSelected(TabId::Profiles)),
-                    space::horizontal(),
-                ];
-                let tab_contents: Element<'_, Message> = match self.active_tab {
-                    TabId::Overview => text("Overview").into(),
-                    TabId::Profiles => self.profiles_tab.view().map(Message::ProfilesTab),
+                let content_pane = if self.selected_game.is_some() {
+                    let tab_bar = row![
+                        button("Overview").on_press(Message::TabSelected(TabId::Overview)),
+                        button("Profiles").on_press(Message::TabSelected(TabId::Profiles)),
+                        space::horizontal(),
+                    ];
+                    let tab_view: Element<'_, Message> = match self.active_tab {
+                        TabId::Overview => text("Overview").into(),
+                        TabId::Profiles => self.profiles_tab.view().map(Message::ProfilesTab),
+                    };
+                    column![tab_bar, tab_view]
+                } else {
+                    column![text("No selected game")]
                 };
 
                 row![
-                    column![text("Games"), rule::horizontal(1), games_sidebar]
-                        .width(Length::FillPortion(1)),
-                    column![tab_bar, tab_contents].width(Length::FillPortion(2))
+                    games_sidebar.width(Length::FillPortion(1)),
+                    content_pane.width(Length::FillPortion(2))
                 ]
                 .into()
             }
