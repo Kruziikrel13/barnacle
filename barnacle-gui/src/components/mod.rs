@@ -1,13 +1,10 @@
 use std::{path::PathBuf, sync::Arc};
 
-use adisruption_widgets::generic_overlay::{self, ResizeMode, overlay_button};
 use barnacle_lib::{Repository, repository::Profile};
-use derive_more::{Deref, DerefMut};
 use iced::{
     Element,
-    Length::{self, Fill},
+    Length::Fill,
     Task, Theme,
-    advanced::widget::operate,
     widget::{button, column, combo_box, row, space, text},
 };
 use parking_lot::RwLock;
@@ -19,6 +16,7 @@ use crate::{
     },
     config::GuiConfig,
     icons::icon,
+    modal,
 };
 
 pub mod add_mod_dialog;
@@ -60,10 +58,12 @@ pub struct App {
     title: String,
     theme: Theme,
     profile_selector: ProfileSelector,
+    // State
+    show_library_manager: bool,
     // Components
     add_mod_dialog: AddModDialog,
     mod_list: ModList,
-    library_manager: LibraryManagerOverlay,
+    library_manager: LibraryManager,
 }
 
 impl App {
@@ -82,16 +82,14 @@ impl App {
                 state: State::Loading,
                 title: "Barnacle".into(),
                 theme,
+                show_library_manager: false,
                 profile_selector: ProfileSelector {
                     state: combo_box::State::new(Vec::new()),
                     selected: None,
                 },
                 add_mod_dialog,
                 mod_list,
-                library_manager: LibraryManagerOverlay {
-                    content: library_manager,
-                    visible: false,
-                },
+                library_manager,
             },
             Task::batch([
                 mod_list_task.map(Message::ModList),
@@ -126,67 +124,53 @@ impl App {
                 add_mod_dialog::Action::Run(task) => task.map(Message::AddModDialog),
                 add_mod_dialog::Action::AddMod { name, path } => {
                     let repo = self.repo.clone();
-                    Task::batch([
-                        Task::perform(
-                            async {
-                                spawn_blocking(move || {
-                                    // TODO: Should this just silenty fail? I guess the "Add Mod" button
-                                    // won't even be enabled if there isn't a current profile but still
-                                    // doesn't feel right.
-                                    if let Some(profile) = repo.active_profile().unwrap() {
-                                        let game = profile.parent().unwrap();
+                    Task::perform(
+                        async {
+                            spawn_blocking(move || {
+                                // TODO: Should this just silenty fail? I guess the "Add Mod" button
+                                // won't even be enabled if there isn't a current profile but still
+                                // doesn't feel right.
+                                if let Some(profile) = repo.active_profile().unwrap() {
+                                    let game = profile.parent().unwrap();
 
-                                        let mod_ = game
-                                            .add_mod(&name, Some(&PathBuf::from(path)))
-                                            .unwrap();
-                                        profile.add_mod_entry(mod_).unwrap();
-                                    }
-                                })
-                                .await
-                            },
-                            |_| Message::ModAdded,
-                        ),
-                        operate(generic_overlay::close::<Message>(add_mod_dialog::ID.into())),
-                    ])
+                                    let mod_ =
+                                        game.add_mod(&name, Some(&PathBuf::from(path))).unwrap();
+                                    profile.add_mod_entry(mod_).unwrap();
+                                }
+                            })
+                            .await
+                        },
+                        |_| Message::ModAdded,
+                    )
                 }
             },
             Message::ModList(message) => self.mod_list.update(message).map(Message::ModList),
             Message::LibraryManager(message) => match self.library_manager.update(message) {
                 library_manager::Action::None => Task::none(),
                 library_manager::Action::Run(task) => task.map(Message::LibraryManager),
-                library_manager::Action::CreateGame(new_game) => Task::batch([
-                    Task::perform(
-                        {
-                            let repo = self.repo.clone();
-                            async move {
-                                spawn_blocking(move || {
-                                    repo.add_game(&new_game.name, new_game.deploy_kind)
-                                })
+                library_manager::Action::CreateGame(new_game) => Task::perform(
+                    {
+                        let repo = self.repo.clone();
+                        async move {
+                            spawn_blocking(move || {
+                                repo.add_game(&new_game.name, new_game.deploy_kind)
+                            })
+                            .await
+                        }
+                    },
+                    |_| Message::GameAdded,
+                ),
+                library_manager::Action::CreateProfile { game, new_profile } => Task::perform(
+                    {
+                        let game = game.clone();
+                        async {
+                            spawn_blocking(move || game.add_profile(&new_profile.name).unwrap())
                                 .await
-                            }
-                        },
-                        |_| Message::GameAdded,
-                    ),
-                    operate(generic_overlay::close::<Message>(
-                        library_manager::new_game_dialog::ID.into(),
-                    )),
-                ]),
-                library_manager::Action::CreateProfile { game, new_profile } => Task::batch([
-                    Task::perform(
-                        {
-                            let game = game.clone();
-                            async {
-                                spawn_blocking(move || game.add_profile(&new_profile.name).unwrap())
-                                    .await
-                                    .unwrap()
-                            }
-                        },
-                        |_| Message::ProfileAdded,
-                    ),
-                    operate(generic_overlay::close::<Message>(
-                        library_manager::profiles_tab::new_dialog::ID.into(),
-                    )),
-                ]),
+                                .unwrap()
+                        }
+                    },
+                    |_| Message::ProfileAdded,
+                ),
                 // library_manager::Action::EditGame(edit) => Task::perform(
                 //     async move {
                 //         spawn_blocking(move || {
@@ -202,10 +186,16 @@ impl App {
                     async move { spawn_blocking(move || game.remove().unwrap()).await },
                     |_| Message::GameDeleted,
                 ),
-                library_manager::Action::Close => Task::none(),
+                library_manager::Action::Close => {
+                    self.show_library_manager = false;
+                    Task::none()
+                }
             },
             Message::AddModButtonPressed => Task::none(),
-            Message::LibraryManagerButtonPressed => Task::none(),
+            Message::LibraryManagerButtonPressed => {
+                self.show_library_manager = true;
+                Task::none()
+            }
             Message::ModAdded => self.mod_list.refresh().map(Message::ModList),
             Message::ProfileSelected(profile) => {
                 self.profile_selector.selected = Some(profile.clone());
@@ -233,7 +223,7 @@ impl App {
 
     // Render the application and pass along messages from components to update()
     pub fn view(&self) -> Element<'_, Message> {
-        column![
+        let content = column![
             // Top bar
             row![
                 button("Launch game"),
@@ -246,35 +236,26 @@ impl App {
                     Message::ProfileSelected
                 ),
                 space::horizontal(),
-                overlay_button(
-                    icon("library"),
-                    "Library Manager",
-                    self.library_manager.view().map(Message::LibraryManager)
-                )
-                .overlay_width_dynamic(|window_width| Length::Fixed(window_width * 0.8))
-                .overlay_height_dynamic(|window_height| Length::Fixed(window_height * 0.8))
-                .resizable(ResizeMode::Always),
+                button(icon("library")).on_press(Message::LibraryManagerButtonPressed),
                 button(icon("settings")),
                 button(icon("notifications"))
             ],
             // Action bar
-            row![
-                overlay_button(
-                    "Add Mod",
-                    "Add Mod",
-                    self.add_mod_dialog.view().map(Message::AddModDialog)
-                )
-                .overlay_width_dynamic(|window_width| Length::Fixed(window_width * 0.5))
-                .overlay_height_dynamic(|window_height| Length::Fixed(window_height * 0.6))
-                .hide_header()
-                .opaque(true)
-                .id(add_mod_dialog::ID)
-            ],
+            row![button("Add Mod")],
             // Mod list
             self.mod_list.view().map(Message::ModList),
         ]
-        .height(Fill)
-        .into()
+        .height(Fill);
+
+        if self.show_library_manager {
+            modal(
+                content,
+                self.library_manager.view().map(Message::LibraryManager),
+                None,
+            )
+        } else {
+            content.into()
+        }
     }
 
     pub fn title(&self) -> String {
@@ -311,12 +292,4 @@ fn load_state(repo: Repository) -> Task<Message> {
 struct ProfileSelector {
     state: combo_box::State<Profile>,
     selected: Option<Profile>,
-}
-
-#[derive(Deref, DerefMut)]
-struct LibraryManagerOverlay {
-    #[deref]
-    #[deref_mut]
-    content: LibraryManager,
-    visible: bool,
 }

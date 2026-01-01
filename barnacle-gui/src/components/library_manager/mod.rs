@@ -6,7 +6,7 @@ use adisruption_widgets::generic_overlay::overlay_button;
 use barnacle_lib::{Repository, repository::Game};
 use iced::{
     Element, Length, Task,
-    widget::{Column, button, column, row, rule, scrollable, space, text},
+    widget::{Column, button, column, container, row, rule, scrollable, space, text},
 };
 use tokio::task::spawn_blocking;
 
@@ -165,7 +165,7 @@ impl LibraryManager {
         .opaque(true)
         .id(new_game_dialog::ID);
 
-        match &self.state {
+        let content: Element<'_, Message> = match &self.state {
             State::Loading => text("Loading...").into(),
             State::Error(e) => text(e).into(),
             State::NoGames => column![text("No games"), add_game_button].into(),
@@ -203,7 +203,20 @@ impl LibraryManager {
                 ]
                 .into()
             }
-        }
+        };
+
+        container(column![
+            row![
+                text("Library Manager"),
+                space::horizontal(),
+                button(icon("close")).on_press(Message::CloseButtonPressed)
+            ],
+            content
+        ])
+        .width(800)
+        .height(600)
+        .style(container::rounded_box)
+        .into()
     }
 }
 
