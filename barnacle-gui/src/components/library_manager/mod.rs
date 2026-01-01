@@ -1,8 +1,8 @@
 use crate::{
     components::library_manager::{new_game_dialog::NewGame, profiles_tab::new_dialog::NewProfile},
     icons::icon,
+    modal,
 };
-use adisruption_widgets::generic_overlay::overlay_button;
 use barnacle_lib::{Repository, repository::Game};
 use iced::{
     Element, Length, Task,
@@ -18,6 +18,7 @@ pub enum Message {
     StateChanged(State),
     TabSelected(TabId),
     CloseButtonPressed,
+    NewGameButtonPressed,
     GameRowSelected(Game),
     // Components
     NewGameDialog(new_game_dialog::Message),
@@ -56,8 +57,10 @@ pub enum State {
 pub struct LibraryManager {
     repo: Repository,
     state: State,
+    // State
     active_tab: TabId,
     selected_game: Option<Game>,
+    show_new_game_dialog: bool,
     // Components
     new_game_dialog: new_game_dialog::Dialog,
     profiles_tab: profiles_tab::Tab,
@@ -74,6 +77,7 @@ impl LibraryManager {
                 state: State::Loading,
                 active_tab: TabId::default(),
                 selected_game: None,
+                show_new_game_dialog: false,
                 new_game_dialog,
                 profiles_tab,
             },
@@ -116,6 +120,10 @@ impl LibraryManager {
                 Action::None
             }
             Message::CloseButtonPressed => Action::Close,
+            Message::NewGameButtonPressed => {
+                self.show_new_game_dialog = true;
+                Action::None
+            }
             Message::GameRowSelected(game) => {
                 self.selected_game = Some(game.clone());
                 Action::Run(self.profiles_tab.refresh(&game).map(Message::ProfilesTab))
@@ -124,6 +132,10 @@ impl LibraryManager {
                 new_game_dialog::Action::None => Action::None,
                 new_game_dialog::Action::Run(task) => Action::Run(task.map(Message::NewGameDialog)),
                 new_game_dialog::Action::CreateGame(new_game) => Action::CreateGame(new_game),
+                new_game_dialog::Action::Cancel => {
+                    self.show_new_game_dialog = false;
+                    Action::None
+                }
             },
             Message::ProfilesTab(message) => match self.profiles_tab.update(message) {
                 profiles_tab::Action::None => Action::None,
@@ -154,21 +166,19 @@ impl LibraryManager {
     }
 
     pub fn view(&self) -> Element<'_, Message> {
-        let add_game_button = overlay_button(
-            row![icon("plus"), text(" Add Game")],
-            "Add Game",
-            self.new_game_dialog.view().map(Message::NewGameDialog),
-        )
-        .overlay_width_dynamic(|window_width| Length::Fixed(window_width * 0.4))
-        .overlay_height_dynamic(|window_height| Length::Fixed(window_height * 0.6))
-        .hide_header()
-        .opaque(true)
-        .id(new_game_dialog::ID);
+        let title_bar = row![
+            text("Library Manager"),
+            space::horizontal(),
+            button(icon("close")).on_press(Message::CloseButtonPressed)
+        ];
 
-        let content: Element<'_, Message> = match &self.state {
+        let new_game_button =
+            button(row![icon("plus"), text(" New Game")]).on_press(Message::NewGameButtonPressed);
+
+        let body: Element<'_, Message> = match &self.state {
             State::Loading => text("Loading...").into(),
             State::Error(e) => text(e).into(),
-            State::NoGames => column![text("No games"), add_game_button].into(),
+            State::NoGames => column![text("No games"), new_game_button].into(),
             State::Loaded { active_game, games } => {
                 let game_rows = games
                     .iter()
@@ -179,7 +189,7 @@ impl LibraryManager {
                     rule::horizontal(1),
                     scrollable(Column::with_children(game_rows)),
                     space::vertical(),
-                    add_game_button
+                    new_game_button
                 ];
 
                 let content_pane = if self.selected_game.is_some() {
@@ -188,10 +198,12 @@ impl LibraryManager {
                         button("Profiles").on_press(Message::TabSelected(TabId::Profiles)),
                         space::horizontal(),
                     ];
+
                     let tab_view: Element<'_, Message> = match self.active_tab {
                         TabId::Overview => text("Overview").into(),
                         TabId::Profiles => self.profiles_tab.view().map(Message::ProfilesTab),
                     };
+
                     column![tab_bar, tab_view]
                 } else {
                     column![text("No selected game")]
@@ -201,18 +213,22 @@ impl LibraryManager {
                     games_sidebar.width(Length::FillPortion(1)),
                     content_pane.width(Length::FillPortion(2))
                 ]
+                .padding(20)
                 .into()
             }
         };
 
-        container(column![
-            row![
-                text("Library Manager"),
-                space::horizontal(),
-                button(icon("close")).on_press(Message::CloseButtonPressed)
-            ],
+        let content = column![title_bar, body].into();
+
+        container(if self.show_new_game_dialog {
+            modal(
+                content,
+                self.new_game_dialog.view().map(Message::NewGameDialog),
+                None,
+            )
+        } else {
             content
-        ])
+        })
         .width(800)
         .height(600)
         .style(container::rounded_box)

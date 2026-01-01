@@ -28,6 +28,7 @@ pub enum Action {
     None,
     Run(Task<Message>),
     CreateGame(NewGame),
+    Cancel,
 }
 
 #[derive(Debug, Clone)]
@@ -67,7 +68,7 @@ impl Dialog {
             }
             Message::CancelPressed => {
                 self.clear();
-                Action::Run(operate(generic_overlay::close::<Message>(ID.into())))
+                Action::Cancel
             }
             Message::CreatePressed => {
                 let name = self.name.clone();
@@ -102,7 +103,10 @@ impl Dialog {
                 button("Create").on_press_maybe(self.validate().then_some(Message::CreatePressed)),
             ],
         ])
+        .width(400)
+        .height(500)
         .padding(20)
+        .style(container::rounded_box)
         .into()
     }
 
