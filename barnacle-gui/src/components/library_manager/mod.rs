@@ -90,31 +90,27 @@ impl LibraryManager {
     }
 
     pub fn refresh(&self) -> Task<Message> {
-        Task::batch([
-            load_state(self.repo.clone()),
-            self.profiles_tab
-                .refresh(&self.selected_game.clone().unwrap())
-                .map(Message::ProfilesTab),
-        ])
+        load_state(self.repo.clone())
     }
 
     pub fn update(&mut self, message: Message) -> Action {
         match message {
             Message::StateChanged(state) => {
-                let mut action = Action::None;
-                if let State::Loaded { active_game, .. } = &state
-                    && self.selected_game.is_none()
-                {
-                    self.selected_game = Some(active_game.clone());
-                    action = Action::Run(
-                        self.profiles_tab
-                            .refresh(active_game)
-                            .map(Message::ProfilesTab),
-                    );
-                }
-
                 self.state = state;
-                action
+                match &self.state {
+                    State::Loaded { active_game, .. } => {
+                        // If there isn't already a selected game, we can set it to the active game
+                        let selected_game = self.selected_game.get_or_insert(active_game.clone());
+
+                        // We only want to load the tab contents if we have a selected_game
+                        Action::Run(
+                            self.profiles_tab
+                                .refresh(selected_game)
+                                .map(Message::ProfilesTab),
+                        )
+                    }
+                    _ => Action::None,
+                }
             }
             Message::TabSelected(id) => {
                 self.active_tab = id;
@@ -132,7 +128,10 @@ impl LibraryManager {
             Message::NewGameDialog(message) => match self.new_game_dialog.update(message) {
                 new_game_dialog::Action::None => Action::None,
                 new_game_dialog::Action::Run(task) => Action::Run(task.map(Message::NewGameDialog)),
-                new_game_dialog::Action::CreateGame(new_game) => Action::CreateGame(new_game),
+                new_game_dialog::Action::CreateGame(new_game) => {
+                    self.show_new_game_dialog = false;
+                    Action::CreateGame(new_game)
+                }
                 new_game_dialog::Action::Cancel => {
                     self.show_new_game_dialog = false;
                     Action::None
@@ -198,7 +197,6 @@ impl LibraryManager {
                         self.tab_button(TabId::Overview),
                         self.tab_button(TabId::Profiles),
                     ];
-
                     let tab_view: Element<'_, Message> = match self.active_tab {
                         TabId::Overview => text("Overview").into(),
                         TabId::Profiles => self.profiles_tab.view().map(Message::ProfilesTab),
