@@ -28,6 +28,7 @@ pub enum Action {
     None,
     Run(Task<Message>),
     AddMod { name: String, path: String },
+    Cancel,
 }
 
 #[derive(Debug, Clone)]
@@ -89,7 +90,7 @@ impl AddModDialog {
             }
             Message::CancelButtonPressed => {
                 self.clear();
-                Action::Run(operate(generic_overlay::close::<Message>(ID.into())))
+                Action::Cancel
             }
             Message::AddButtonPressed => Action::AddMod {
                 name: self.name.clone(),
@@ -120,6 +121,7 @@ impl AddModDialog {
         .padding(20)
         .width(400)
         .height(600)
+        .style(container::rounded_box)
         .into()
     }
 

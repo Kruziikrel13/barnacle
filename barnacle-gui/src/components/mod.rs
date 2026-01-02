@@ -60,6 +60,7 @@ pub struct App {
     profile_selector: ProfileSelector,
     // State
     show_library_manager: bool,
+    show_add_mod_dialog: bool,
     // Components
     add_mod_dialog: AddModDialog,
     mod_list: ModList,
@@ -83,6 +84,7 @@ impl App {
                 title: "Barnacle".into(),
                 theme,
                 show_library_manager: false,
+                show_add_mod_dialog: false,
                 profile_selector: ProfileSelector {
                     state: combo_box::State::new(Vec::new()),
                     selected: None,
@@ -123,13 +125,11 @@ impl App {
                 add_mod_dialog::Action::None => Task::none(),
                 add_mod_dialog::Action::Run(task) => task.map(Message::AddModDialog),
                 add_mod_dialog::Action::AddMod { name, path } => {
+                    self.show_add_mod_dialog = false;
                     let repo = self.repo.clone();
                     Task::perform(
                         async {
                             spawn_blocking(move || {
-                                // TODO: Should this just silenty fail? I guess the "Add Mod" button
-                                // won't even be enabled if there isn't a current profile but still
-                                // doesn't feel right.
                                 if let Some(profile) = repo.active_profile().unwrap() {
                                     let game = profile.parent().unwrap();
 
@@ -142,6 +142,10 @@ impl App {
                         },
                         |_| Message::ModAdded,
                     )
+                }
+                add_mod_dialog::Action::Cancel => {
+                    self.show_add_mod_dialog = false;
+                    Task::none()
                 }
             },
             Message::ModList(message) => self.mod_list.update(message).map(Message::ModList),
@@ -191,7 +195,10 @@ impl App {
                     Task::none()
                 }
             },
-            Message::AddModButtonPressed => Task::none(),
+            Message::AddModButtonPressed => {
+                self.show_add_mod_dialog = true;
+                Task::none()
+            }
             Message::LibraryManagerButtonPressed => {
                 self.show_library_manager = true;
                 Task::none()
@@ -241,7 +248,14 @@ impl App {
                 button(icon("notifications"))
             ],
             // Action bar
-            row![button("Add Mod")],
+            row![
+                button("Add Mod").on_press_maybe(
+                    self.profile_selector
+                        .selected
+                        .is_some()
+                        .then_some(Message::AddModButtonPressed)
+                )
+            ],
             // Mod list
             self.mod_list.view().map(Message::ModList),
         ]
@@ -251,6 +265,12 @@ impl App {
             modal(
                 content,
                 self.library_manager.view().map(Message::LibraryManager),
+                None,
+            )
+        } else if self.show_add_mod_dialog {
+            modal(
+                content,
+                self.add_mod_dialog.view().map(Message::AddModDialog),
                 None,
             )
         } else {
