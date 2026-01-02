@@ -73,18 +73,6 @@ impl App {
         let cfg = Arc::new(RwLock::new(GuiConfig::load()));
         let theme = cfg.read().theme();
 
-        for game in repo.games().unwrap() {
-            for mod_ in game.mods().unwrap() {
-                dbg!(mod_.name().unwrap());
-            }
-            for profile in game.profiles().unwrap() {
-                dbg!(profile.name().unwrap());
-                for entry in profile.mod_entries().unwrap() {
-                    dbg!(entry.name().unwrap());
-                }
-            }
-        }
-
         let (add_mod_dialog, _add_mod_dialog_class) = AddModDialog::new(repo.clone());
         let mod_list = ModList::new(repo.clone(), cfg.clone());
         let (library_manager, library_manager_task) = LibraryManager::new(repo.clone());
@@ -151,7 +139,6 @@ impl App {
                                     let mod_ =
                                         game.add_mod(&name, Some(&PathBuf::from(path))).unwrap();
                                     profile.add_mod_entry(mod_).unwrap();
-                                    dbg!(profile.mod_entries().unwrap());
                                 }
                             })
                             .await

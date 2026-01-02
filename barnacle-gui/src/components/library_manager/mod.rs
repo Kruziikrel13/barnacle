@@ -8,6 +8,7 @@ use iced::{
     Element, Length, Task,
     widget::{Column, button, column, container, row, rule, scrollable, space, text},
 };
+use strum::Display;
 use tokio::task::spawn_blocking;
 
 pub mod new_game_dialog;
@@ -36,7 +37,7 @@ pub enum Action {
     Close,
 }
 
-#[derive(Debug, Default, Clone, Eq, PartialEq)]
+#[derive(Debug, Default, Clone, Copy, Eq, PartialEq, Display)]
 pub enum TabId {
     Overview,
     #[default]
@@ -194,9 +195,8 @@ impl LibraryManager {
 
                 let content_pane = if self.selected_game.is_some() {
                     let tab_bar = row![
-                        button("Overview").on_press(Message::TabSelected(TabId::Overview)),
-                        button("Profiles").on_press(Message::TabSelected(TabId::Profiles)),
-                        space::horizontal(),
+                        self.tab_button(TabId::Overview),
+                        self.tab_button(TabId::Profiles),
                     ];
 
                     let tab_view: Element<'_, Message> = match self.active_tab {
@@ -233,6 +233,19 @@ impl LibraryManager {
         .height(600)
         .style(container::rounded_box)
         .into()
+    }
+
+    fn tab_button(&self, tab: TabId) -> Element<'_, Message> {
+        let style = if self.active_tab == tab {
+            button::primary
+        } else {
+            button::subtle
+        };
+
+        button(text(tab.to_string()))
+            .on_press(Message::TabSelected(tab))
+            .style(style)
+            .into()
     }
 }
 
