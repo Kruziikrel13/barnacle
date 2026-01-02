@@ -5,7 +5,7 @@ use std::{
 };
 
 use super::Error;
-use agdb::{DbId, DbValue, QueryBuilder};
+use agdb::{CountComparison, DbId, DbValue, QueryBuilder};
 use heck::ToSnakeCase;
 use tracing::debug;
 
@@ -82,6 +82,10 @@ impl Profile {
                     .from("active_profile")
                     .where_()
                     .edge()
+                    .and()
+                    // Only delete the first edge. We don't want to accidentally wipe out all edges
+                    // coming from active_profile
+                    .distance(CountComparison::Equal(1))
                     .query(),
             )?;
             // Insert a new edge from active_profile to new profile_id
@@ -247,7 +251,6 @@ mod test {
     }
 
     #[test]
-    #[should_panic]
     fn test_remove() {
         let repo = Repository::mock();
         let game = repo.add_game("Skyrim", DeployKind::CreationEngine).unwrap();
@@ -262,8 +265,7 @@ mod test {
 
         profile.remove().unwrap();
 
-        // try removing already removed mod entry (this should panic)
-        mod_entry.remove().unwrap();
+        assert!(matches!(mod_entry.remove(), Err(Error::RemovedEntity)));
         assert!(!dir.exists());
         assert_eq!(game.profiles().unwrap().len(), 0);
     }
@@ -319,5 +321,29 @@ mod test {
             profile.make_active(),
             Err(Error::ParentGameMismatch)
         ))
+    }
+
+    /// Make sure the query for deleting the old edge from active_profile is wiping out any other
+    /// edges.
+    #[test]
+    fn test_make_active_old_mod_entries_not_deleted() {
+        let repo = Repository::mock();
+
+        let game = repo.add_game("Morrowind", DeployKind::OpenMW).unwrap();
+
+        let mod1 = game.add_mod("BIG BOOBA", None).unwrap();
+        let mod2 = game.add_mod("BIG BOOBA 2", None).unwrap();
+
+        let profile1 = game.add_profile("Test").unwrap();
+        profile1.make_active().unwrap();
+        profile1.add_mod_entry(mod1).unwrap();
+        profile1.add_mod_entry(mod2).unwrap();
+
+        assert_eq!(profile1.mod_entries().unwrap().len(), 2);
+
+        let profile2 = game.add_profile("Test2").unwrap();
+        profile2.make_active().unwrap();
+
+        assert_eq!(profile1.mod_entries().unwrap().len(), 2);
     }
 }

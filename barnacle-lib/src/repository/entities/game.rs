@@ -5,7 +5,7 @@ use std::{
 };
 
 use super::Error;
-use agdb::{DbId, DbValue, QueryBuilder, QueryId};
+use agdb::{CountComparison, DbId, DbValue, QueryBuilder, QueryId};
 use heck::ToSnakeCase;
 use tracing::debug;
 
@@ -262,6 +262,10 @@ impl Game {
                     .from("active_game")
                     .where_()
                     .edge()
+                    .and()
+                    // Only delete the first edge. We don't want to accidentally wipe out all edges
+                    // coming from active_game
+                    .distance(CountComparison::Equal(1))
                     .query(),
             )?;
             // Insert a new edge from active_game to new game_id

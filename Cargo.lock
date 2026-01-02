@@ -443,7 +443,6 @@ dependencies = [
  "toml",
  "tracing",
  "tracing-subscriber",
- "widgets",
 ]
 
 [[package]]
@@ -4949,14 +4948,6 @@ name = "widestring"
 version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "72069c3113ab32ab29e5584db3c6ec55d416895e60715417b5b883a357c3e471"
-
-[[package]]
-name = "widgets"
-version = "0.1.0"
-source = "git+https://github.com/A-Disruption/widgets.git?branch=master#e2ae70bf2cdd4bf36b923307e837371e19594315"
-dependencies = [
- "iced",
-]
 
 [[package]]
 name = "winapi"

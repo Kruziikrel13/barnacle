@@ -1,10 +1,8 @@
 use std::env;
 
-use adisruption_widgets::generic_overlay;
 use barnacle_lib::Repository;
 use iced::{
     Element, Task,
-    advanced::widget::operate,
     widget::{button, column, container, row, space, text_input},
 };
 use rfd::AsyncFileDialog;

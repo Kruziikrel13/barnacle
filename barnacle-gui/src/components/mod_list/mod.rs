@@ -2,7 +2,10 @@ use crate::{
     components::mod_list::state::{ContextMenuState, SortColumn, SortState},
     config::Cfg,
 };
-use barnacle_lib::{Repository, repository::entities::ModEntry};
+use barnacle_lib::{
+    Repository,
+    repository::{Profile, entities::ModEntry},
+};
 use iced::{
     Element, Length, Point, Task,
     widget::{button, checkbox, column, row, scrollable, table, text},
@@ -14,14 +17,21 @@ pub mod state;
 
 #[derive(Debug, Clone)]
 pub enum Message {
-    Loaded(Vec<ModEntry>),
+    StateChanged(State),
     SortChanged(SortColumn),
     ClickedOutContextMenu,
-    ModEntryToggled(ModEntry, bool),
+    ToggleModEntry(ModEntry, bool),
     ModEntryRightClicked(ModEntry, Point),
     ModEntryDeleted(ModEntry),
 }
 
+#[derive(Debug)]
+pub enum Action {
+    None,
+    Run(Task<Message>),
+}
+
+#[derive(Debug, Clone)]
 pub enum State {
     Loading,
     Error(String),
@@ -37,41 +47,59 @@ pub struct ModList {
 }
 
 impl ModList {
-    pub fn new(repo: Repository, cfg: Cfg) -> (Self, Task<Message>) {
-        (
-            Self {
-                repo: repo.clone(),
-                cfg,
-                state: State::Loading,
-                sort: SortState::default(),
-                context_menu: None,
+    pub fn new(repo: Repository, cfg: Cfg) -> Self {
+        Self {
+            repo: repo.clone(),
+            cfg,
+            state: State::Loading,
+            sort: SortState::default(),
+            context_menu: None,
+        }
+    }
+
+    pub fn refresh(&self, profile: &Profile) -> Task<Message> {
+        let profile = profile.clone();
+        Task::perform(
+            async {
+                spawn_blocking(move || State::Loaded(profile.mod_entries().unwrap()))
+                    .await
+                    .unwrap()
             },
-            list_mods(&repo),
+            Message::StateChanged,
         )
     }
 
-    pub fn update(&mut self, message: Message) -> Task<Message> {
+    pub fn update(&mut self, message: Message) -> Action {
         match message {
-            Message::Loaded(entries) => self.state = State::Loaded(entries),
+            Message::StateChanged(state) => {
+                self.state = state;
+                Action::None
+            }
             Message::SortChanged(column) => {
                 self.sort = self.sort.toggle(column);
                 self.cfg.write().mod_list.sort_state = self.sort;
+                Action::None
             }
-            Message::ClickedOutContextMenu => self.context_menu = None,
-            Message::ModEntryToggled(entry, state) => {
+            Message::ClickedOutContextMenu => {
+                self.context_menu = None;
+                Action::None
+            }
+            Message::ToggleModEntry(entry, state) => {
                 // TODO: This should be async
+                let entry = entry.clone();
                 entry.set_enabled(state).unwrap();
+                Action::None
             }
             Message::ModEntryRightClicked(entry, position) => {
-                self.context_menu = Some(ContextMenuState::new(entry, position))
+                self.context_menu = Some(ContextMenuState::new(entry, position));
+                Action::None
             }
             Message::ModEntryDeleted(entry) => {
                 println!("Deletion of {:?}", entry);
                 // entry.remove().unwrap();
+                Action::None
             }
         }
-
-        Task::none()
     }
 
     pub fn view(&self) -> Element<'_, Message> {
@@ -94,7 +122,7 @@ impl ModList {
                     ),
                     table::column(text("Status"), |entry: ModEntry| {
                         checkbox(entry.enabled().unwrap())
-                            .on_toggle(move |state| Message::ModEntryToggled(entry.clone(), state))
+                            .on_toggle(move |state| Message::ToggleModEntry(entry.clone(), state))
                     }),
                 ];
 
@@ -105,28 +133,6 @@ impl ModList {
             }
         }
     }
-
-    pub fn refresh(&self) -> Task<Message> {
-        list_mods(&self.repo)
-    }
-}
-
-fn list_mods(repo: &Repository) -> Task<Message> {
-    let repo = repo.clone();
-    Task::perform(
-        async {
-            spawn_blocking(move || {
-                if let Some(profile) = repo.clone().active_profile().unwrap() {
-                    profile.mod_entries().unwrap()
-                } else {
-                    Vec::new()
-                }
-            })
-            .await
-            .unwrap()
-        },
-        Message::Loaded,
-    )
 }
 
 fn column_header<'a>(

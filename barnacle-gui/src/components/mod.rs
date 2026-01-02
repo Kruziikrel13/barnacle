@@ -32,7 +32,7 @@ pub enum Message {
     ProfileSelected(Profile),
     GameAdded,
     ProfileAdded,
-    ProfileActivated,
+    ProfileActivated(Profile),
     GameEdited,
     GameDeleted,
     // Components
@@ -73,8 +73,20 @@ impl App {
         let cfg = Arc::new(RwLock::new(GuiConfig::load()));
         let theme = cfg.read().theme();
 
+        for game in repo.games().unwrap() {
+            for mod_ in game.mods().unwrap() {
+                dbg!(mod_.name().unwrap());
+            }
+            for profile in game.profiles().unwrap() {
+                dbg!(profile.name().unwrap());
+                for entry in profile.mod_entries().unwrap() {
+                    dbg!(entry.name().unwrap());
+                }
+            }
+        }
+
         let (add_mod_dialog, _add_mod_dialog_class) = AddModDialog::new(repo.clone());
-        let (mod_list, mod_list_task) = ModList::new(repo.clone(), cfg.clone());
+        let mod_list = ModList::new(repo.clone(), cfg.clone());
         let (library_manager, library_manager_task) = LibraryManager::new(repo.clone());
 
         (
@@ -94,7 +106,6 @@ impl App {
                 library_manager,
             },
             Task::batch([
-                mod_list_task.map(Message::ModList),
                 library_manager_task.map(Message::LibraryManager),
                 load_state(repo.clone()),
             ]),
@@ -117,6 +128,10 @@ impl App {
                 {
                     self.profile_selector.state = combo_box::State::new(profiles.clone());
                     self.profile_selector.selected = active_profile.clone();
+
+                    if let Some(active_profile) = active_profile {
+                        return self.mod_list.refresh(active_profile).map(Message::ModList);
+                    }
                 }
 
                 Task::none()
@@ -136,6 +151,7 @@ impl App {
                                     let mod_ =
                                         game.add_mod(&name, Some(&PathBuf::from(path))).unwrap();
                                     profile.add_mod_entry(mod_).unwrap();
+                                    dbg!(profile.mod_entries().unwrap());
                                 }
                             })
                             .await
@@ -148,7 +164,10 @@ impl App {
                     Task::none()
                 }
             },
-            Message::ModList(message) => self.mod_list.update(message).map(Message::ModList),
+            Message::ModList(message) => match self.mod_list.update(message) {
+                mod_list::Action::None => Task::none(),
+                mod_list::Action::Run(task) => task.map(Message::ModList),
+            },
             Message::LibraryManager(message) => match self.library_manager.update(message) {
                 library_manager::Action::None => Task::none(),
                 library_manager::Action::Run(task) => task.map(Message::LibraryManager),
@@ -203,25 +222,35 @@ impl App {
                 self.show_library_manager = true;
                 Task::none()
             }
-            Message::ModAdded => self.mod_list.refresh().map(Message::ModList),
+            Message::ModAdded => {
+                if let Some(active_profile) = &self.profile_selector.selected {
+                    self.mod_list.refresh(active_profile).map(Message::ModList)
+                } else {
+                    Task::none()
+                }
+            }
             Message::ProfileSelected(profile) => {
                 self.profile_selector.selected = Some(profile.clone());
                 Task::perform(
                     async {
                         spawn_blocking(move || {
                             profile.make_active().unwrap();
+                            profile
                         })
                         .await
                         .unwrap()
                     },
-                    |_| Message::ProfileActivated,
+                    Message::ProfileActivated,
                 )
             }
             Message::ProfileAdded => Task::batch([
                 self.refresh(),
                 self.library_manager.refresh().map(Message::LibraryManager),
             ]),
-            Message::ProfileActivated => self.refresh(),
+            Message::ProfileActivated(profile) => Task::batch([
+                self.refresh(),
+                self.mod_list.refresh(&profile).map(Message::ModList),
+            ]),
             Message::GameAdded | Message::GameEdited | Message::GameDeleted => {
                 self.library_manager.refresh().map(Message::LibraryManager)
             }

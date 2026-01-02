@@ -1,8 +1,6 @@
-use adisruption_widgets::generic_overlay;
 use barnacle_lib::repository::DeployKind;
 use iced::{
     Element, Task,
-    advanced::widget::operate,
     widget::{button, column, combo_box, container, row, space, text, text_input},
 };
 use strum::IntoEnumIterator;

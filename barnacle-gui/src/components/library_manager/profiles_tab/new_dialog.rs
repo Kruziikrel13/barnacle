@@ -1,4 +1,3 @@
-use adisruption_widgets::generic_overlay;
 use iced::{
     Element, Task,
     advanced::widget::operate,
@@ -18,6 +17,7 @@ pub enum Action {
     None,
     Run(Task<Message>),
     Create(NewProfile),
+    Cancel,
 }
 
 pub struct NewDialog {
@@ -47,7 +47,7 @@ impl NewDialog {
             }
             Message::CancelPressed => {
                 self.clear();
-                Action::Run(operate(generic_overlay::close::<Message>(ID.into())))
+                Action::Cancel
             }
             Message::CreatePressed => {
                 let name = self.name.clone();
