@@ -101,6 +101,10 @@ impl Profile {
         })
     }
 
+    pub fn is_active(&self) -> Result<bool> {
+        Ok(Profile::active(self.db.clone(), self.cfg.clone())? == Some(self.clone()))
+    }
+
     pub(crate) fn active(db: Db, cfg: Cfg) -> Result<Option<Profile>> {
         let query = db.read().exec(
             QueryBuilder::select()
@@ -166,6 +170,12 @@ impl Profile {
                         entry_id, err
                     )
                 })
+        }
+
+        if self.is_active()?
+            && let Some(profile) = self.parent()?.profiles()?.first()
+        {
+            profile.make_active()?;
         }
 
         let name = self.name()?;
@@ -260,6 +270,20 @@ mod test {
     }
 
     #[test]
+    fn test_remove_made_next_profile_active() {
+        let repo = Repository::mock();
+        let game = repo.add_game("Skyrim", DeployKind::CreationEngine).unwrap();
+        let profile1 = game.add_profile("Test").unwrap();
+        let profile2 = game.add_profile("Test2").unwrap();
+
+        profile1.make_active().unwrap();
+        assert!(profile1.is_active().unwrap());
+
+        profile1.remove().unwrap();
+        assert!(profile2.is_active().unwrap());
+    }
+
+    #[test]
     fn test_list() {
         let repo = Repository::mock();
         let game = repo.add_game("Skyrim", DeployKind::CreationEngine).unwrap();
@@ -292,6 +316,7 @@ mod test {
         profile.make_active().unwrap();
 
         assert_eq!(repo.active_profile().unwrap().unwrap(), profile);
+        assert!(profile.is_active().unwrap());
         assert_eq!(repo.active_game().unwrap().unwrap(), game);
     }
 

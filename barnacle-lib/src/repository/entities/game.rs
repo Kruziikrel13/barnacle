@@ -111,6 +111,12 @@ impl Game {
                 })
         }
 
+        if self.is_active()?
+            && let Some(game) = Game::list(self.db.clone(), self.cfg.clone())?.first()
+        {
+            game.make_active()?;
+        }
+
         let name = self.name()?;
         let dir = self.dir()?;
 
@@ -287,6 +293,10 @@ impl Game {
         Ok(())
     }
 
+    pub fn is_active(&self) -> Result<bool> {
+        Ok(Game::active(self.db.clone(), self.cfg.clone())? == Some(self.clone()))
+    }
+
     pub(crate) fn active(db: Db, cfg: Cfg) -> Result<Option<Game>> {
         let elements = db
             .read()
@@ -387,6 +397,19 @@ mod test {
     }
 
     #[test]
+    fn test_remove_made_next_game_active() {
+        let repo = Repository::mock();
+        let game1 = repo.add_game("Skyrim", DeployKind::CreationEngine).unwrap();
+        let game2 = repo.add_game("Morrowind", DeployKind::OpenMW).unwrap();
+
+        game1.make_active().unwrap();
+        assert!(game1.is_active().unwrap());
+
+        game1.remove().unwrap();
+        assert!(game2.is_active().unwrap());
+    }
+
+    #[test]
     fn test_list() {
         let repo = Repository::mock();
 
@@ -447,5 +470,17 @@ mod test {
             .join(game.name().unwrap().to_snake_case());
 
         assert_eq!(game.dir().unwrap(), expected_dir);
+    }
+
+    #[test]
+    fn test_make_active() {
+        let repo = Repository::mock();
+
+        let game = repo.add_game("Morrowind", DeployKind::OpenMW).unwrap();
+
+        game.make_active().unwrap();
+
+        assert!(game.is_active().unwrap());
+        assert_eq!(repo.active_game().unwrap().unwrap(), game);
     }
 }
