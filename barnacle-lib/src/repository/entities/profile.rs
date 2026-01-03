@@ -216,17 +216,6 @@ impl Profile {
     }
 }
 
-impl Display for Profile {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{}",
-            self.name()
-                .unwrap_or_else(|_| "<invalid profile name>".into())
-        )
-    }
-}
-
 impl PartialEq for Profile {
     fn eq(&self, other: &Self) -> bool {
         self.id == other.id

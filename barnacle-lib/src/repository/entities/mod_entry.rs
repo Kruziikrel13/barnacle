@@ -1,4 +1,4 @@
-use std::fmt::{self, Debug, Display, Formatter};
+use std::fmt::Debug;
 
 use agdb::{DbId, DbValue, QueryBuilder, QueryId};
 
@@ -281,16 +281,6 @@ impl ModEntry {
         T: Into<DbValue>,
     {
         set_field(&self.db, id, field, value)
-    }
-}
-
-impl Display for ModEntry {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{}",
-            self.name().unwrap_or_else(|_| "<invalid game name>".into())
-        )
     }
 }
 

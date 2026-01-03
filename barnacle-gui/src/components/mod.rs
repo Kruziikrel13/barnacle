@@ -1,6 +1,7 @@
 use std::{path::PathBuf, sync::Arc};
 
 use barnacle_lib::{Repository, repository::Profile};
+use derive_more::{Deref, Display};
 use iced::{
     Element,
     Length::Fill,
@@ -29,7 +30,7 @@ pub enum Message {
     AddModButtonPressed,
     LibraryManagerButtonPressed,
     ModAdded,
-    ProfileSelected(Profile),
+    ProfileSelected(ProfileOption),
     GameAdded,
     ProfileAdded,
     ProfileActivated(Profile),
@@ -47,8 +48,8 @@ pub enum State {
     Error(String),
     NoGames,
     Loaded {
-        active_profile: Option<Profile>,
-        profiles: Vec<Profile>,
+        active_profile: Option<ProfileOption>,
+        profiles: Vec<ProfileOption>,
     },
 }
 
@@ -222,7 +223,7 @@ impl App {
                     async {
                         spawn_blocking(move || {
                             profile.make_active().unwrap();
-                            profile
+                            profile.entity
                         })
                         .await
                         .unwrap()
@@ -309,9 +310,21 @@ fn load_state(repo: Repository) -> Task<Message> {
         async {
             spawn_blocking(move || {
                 if let Some(active_game) = repo.active_game().unwrap() {
+                    let active_profile = repo.active_profile().unwrap();
                     State::Loaded {
-                        active_profile: repo.active_profile().unwrap(),
-                        profiles: active_game.profiles().unwrap(),
+                        active_profile: active_profile.map(|p| ProfileOption {
+                            entity: p.clone(),
+                            name: p.name().unwrap(),
+                        }),
+                        profiles: active_game
+                            .profiles()
+                            .unwrap()
+                            .into_iter()
+                            .map(|p| ProfileOption {
+                                entity: p.clone(),
+                                name: p.name().unwrap(),
+                            })
+                            .collect(),
                     }
                 } else {
                     State::NoGames
@@ -326,6 +339,14 @@ fn load_state(repo: Repository) -> Task<Message> {
 
 #[derive(Debug)]
 struct ProfileSelector {
-    state: combo_box::State<Profile>,
-    selected: Option<Profile>,
+    state: combo_box::State<ProfileOption>,
+    selected: Option<ProfileOption>,
+}
+
+#[derive(Clone, Debug, Display, Deref)]
+#[display("{}", name)]
+pub struct ProfileOption {
+    #[deref]
+    entity: Profile,
+    name: String,
 }

@@ -1,5 +1,5 @@
 use std::{
-    fmt::{self, Debug, Display, Formatter},
+    fmt::Debug,
     fs::{self, File},
     path::{Path, PathBuf},
 };
@@ -146,16 +146,6 @@ impl Mod {
         T: Into<DbValue>,
     {
         set_field(&self.db, self.id, field, value)
-    }
-}
-
-impl Display for Mod {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{}",
-            self.name().unwrap_or_else(|_| "<invalid mod name>".into())
-        )
     }
 }
 
