@@ -21,7 +21,6 @@ pub mod new_dialog;
 #[derive(Debug, Clone)]
 pub enum Message {
     StateChanged(State),
-    ProfileDeleted,
     NewButtonPressed,
     EditButtonPressed(Profile),
     DeleteButtonPressed(Profile),
@@ -37,6 +36,7 @@ pub enum Action {
     Run(Task<Message>),
     Refresh,
     Create(NewProfile),
+    Delete(Profile),
 }
 
 #[derive(Debug, Clone)]
@@ -94,10 +94,6 @@ impl Tab {
                 self.state = state;
                 Action::None
             }
-            Message::ProfileDeleted => {
-                self.state = State::Loading;
-                Action::Refresh
-            }
             Message::ProfileCreated => Action::Refresh,
             Message::ProfileEdited => Action::Refresh,
             Message::NewButtonPressed => {
@@ -110,23 +106,14 @@ impl Tab {
             }
             Message::DeleteButtonPressed(profile) => {
                 self.state = State::Loading;
-
-                Action::Run(Task::perform(
-                    async {
-                        spawn_blocking(move || {
-                            profile.remove().unwrap();
-                        })
-                        .await
-                        .unwrap()
-                    },
-                    |_| Message::ProfileDeleted,
-                ))
+                Action::Delete(profile)
             }
             Message::NewDialog(message) => match self.new_dialog.update(message) {
                 new_dialog::Action::None => Action::None,
                 new_dialog::Action::Run(task) => Action::Run(task.map(Message::NewDialog)),
                 new_dialog::Action::Create(new_profile) => {
                     self.state = State::Loading;
+                    self.show_new_dialog = false;
                     Action::Create(new_profile)
                 }
                 new_dialog::Action::Cancel => {

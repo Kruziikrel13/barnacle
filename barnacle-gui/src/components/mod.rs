@@ -30,12 +30,13 @@ pub enum Message {
     AddModButtonPressed,
     LibraryManagerButtonPressed,
     ModAdded,
-    ProfileSelected(ProfileOption),
     GameAdded,
-    ProfileAdded,
-    ProfileActivated(Profile),
     GameEdited,
     GameDeleted,
+    ProfileAdded,
+    ProfileDeleted,
+    ProfileSelected(ProfileOption),
+    ProfileActivated(Profile),
     // Components
     AddModDialog(add_mod_dialog::Message),
     ModList(mod_list::Message),
@@ -171,6 +172,10 @@ impl App {
                     },
                     |_| Message::GameAdded,
                 ),
+                library_manager::Action::DeleteGame(game) => Task::perform(
+                    async move { spawn_blocking(move || game.remove().unwrap()).await },
+                    |_| Message::GameDeleted,
+                ),
                 library_manager::Action::CreateProfile { game, new_profile } => Task::perform(
                     {
                         let game = game.clone();
@@ -193,9 +198,15 @@ impl App {
                 //     },
                 //     |_| Message::GameEdited,
                 // ),
-                library_manager::Action::DeleteGame(game) => Task::perform(
-                    async move { spawn_blocking(move || game.remove().unwrap()).await },
-                    |_| Message::GameDeleted,
+                library_manager::Action::DeleteProfile(profile) => Task::perform(
+                    async {
+                        spawn_blocking(move || {
+                            profile.remove().unwrap();
+                        })
+                        .await
+                        .unwrap()
+                    },
+                    |_| Message::ProfileDeleted,
                 ),
                 library_manager::Action::Close => {
                     self.show_library_manager = false;
@@ -231,7 +242,7 @@ impl App {
                     Message::ProfileActivated,
                 )
             }
-            Message::ProfileAdded => Task::batch([
+            Message::ProfileAdded | Message::ProfileDeleted => Task::batch([
                 self.refresh(),
                 self.library_manager.refresh().map(Message::LibraryManager),
             ]),

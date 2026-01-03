@@ -3,7 +3,10 @@ use crate::{
     icons::icon,
     modal,
 };
-use barnacle_lib::{Repository, repository::Game};
+use barnacle_lib::{
+    Repository,
+    repository::{Game, Profile},
+};
 use iced::{
     Element, Length, Task,
     widget::{Column, button, column, container, row, rule, scrollable, space, text},
@@ -32,8 +35,9 @@ pub enum Action {
     None,
     Run(Task<Message>),
     CreateGame(NewGame),
-    CreateProfile { game: Game, new_profile: NewProfile },
     DeleteGame(Game),
+    CreateProfile { game: Game, new_profile: NewProfile },
+    DeleteProfile(Profile),
     Close,
 }
 
@@ -138,6 +142,7 @@ impl LibraryManager {
                 }
             },
             Message::ProfilesTab(message) => match self.profiles_tab.update(message) {
+                // TODO: Do top-level if let Some(selected_game)
                 profiles_tab::Action::None => Action::None,
                 profiles_tab::Action::Run(task) => Action::Run(task.map(Message::ProfilesTab)),
                 profiles_tab::Action::Refresh => {
@@ -161,6 +166,7 @@ impl LibraryManager {
                         Action::None
                     }
                 }
+                profiles_tab::Action::Delete(profile) => Action::DeleteProfile(profile),
             },
         }
     }
