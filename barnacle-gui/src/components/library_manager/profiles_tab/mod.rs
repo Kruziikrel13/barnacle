@@ -5,10 +5,12 @@ use barnacle_lib::{
     Repository,
     repository::{Game, Profile},
 };
+use fluent_i18n::t;
 use iced::{
     Element, Length, Task,
     widget::{Column, button, column, container, row, scrollable, space, text},
 };
+use iced_aw::Spinner;
 use tokio::task::spawn_blocking;
 
 use crate::components::library_manager::profiles_tab::{
@@ -142,10 +144,10 @@ impl Tab {
     }
     pub fn view(&self) -> Element<'_, Message> {
         let content = match &self.state {
-            State::Loading => text("Loading...").into(),
+            State::Loading => Spinner::new().into(),
             State::Error(e) => text(e).into(),
             State::Loaded(profiles) => column![
-                button("New").on_press(Message::NewButtonPressed),
+                button(text(t!("new"))).on_press(Message::NewButtonPressed),
                 scrollable(Column::with_children(
                     profiles.iter().map(|p| self.profile_row(p))
                 ))

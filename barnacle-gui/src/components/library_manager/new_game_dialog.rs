@@ -1,4 +1,5 @@
 use barnacle_lib::repository::DeployKind;
+use fluent_i18n::t;
 use iced::{
     Element, Task,
     widget::{button, column, combo_box, container, row, space, text, text_input},
@@ -82,11 +83,11 @@ impl Dialog {
     pub fn view(&self) -> Element<'_, Message> {
         container(column![
             row![
-                text("Name: "),
+                text(t!("name")),
                 text_input("...", &self.name).on_input(Message::NameInput),
             ],
             row![
-                text("Deploy kind: "),
+                text(t!("library-manager_new-game-dialog_deploy-kind")),
                 combo_box(
                     &self.deploy_kind_state,
                     "...",
@@ -97,8 +98,9 @@ impl Dialog {
             space::vertical(),
             row![
                 space::horizontal(),
-                button("Cancel").on_press(Message::CancelPressed),
-                button("Create").on_press_maybe(self.validate().then_some(Message::CreatePressed)),
+                button(text(t!("cancel"))).on_press(Message::CancelPressed),
+                button(text(t!("create")))
+                    .on_press_maybe(self.validate().then_some(Message::CreatePressed)),
             ],
         ])
         .width(400)

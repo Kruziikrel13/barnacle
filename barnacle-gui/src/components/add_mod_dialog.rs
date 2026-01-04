@@ -1,15 +1,14 @@
 use std::env;
 
 use barnacle_lib::Repository;
+use fluent_i18n::t;
 use iced::{
     Element, Task,
-    widget::{button, column, container, row, space, text_input},
+    widget::{button, column, container, row, space, text, text_input},
 };
 use rfd::AsyncFileDialog;
 
 use crate::icons::icon;
-
-pub const ID: &str = "add_mod_overlay";
 
 #[derive(Debug, Clone)]
 pub enum Message {
@@ -100,11 +99,11 @@ impl AddModDialog {
     pub fn view(&self) -> Element<'_, Message> {
         container(column![
             row![
-                "Name: ",
+                text(t!("name")),
                 text_input("...", &self.name).on_input(Message::NameChanged)
             ],
             row![
-                "Path: ",
+                text(t!("path")),
                 text_input("...", &self.path).on_input(Message::PathChanged),
                 button(icon("archive")).on_press(Message::PickPath(PickPathKind::Archive)),
                 button(icon("directory")).on_press(Message::PickPath(PickPathKind::Directory))
@@ -112,8 +111,9 @@ impl AddModDialog {
             space::vertical(),
             row![
                 space::horizontal(),
-                button("Cancel").on_press(Message::CancelButtonPressed),
-                button("Add").on_press_maybe(self.validate().then_some(Message::AddButtonPressed))
+                button(text(t!("cancel"))).on_press(Message::CancelButtonPressed),
+                button(text(t!("add")))
+                    .on_press_maybe(self.validate().then_some(Message::AddButtonPressed))
             ]
         ])
         .padding(20)

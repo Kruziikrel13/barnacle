@@ -1,0 +1,2 @@
+create = Wyrc
+cancel = Awyrc

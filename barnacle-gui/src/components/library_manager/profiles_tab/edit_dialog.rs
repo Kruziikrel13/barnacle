@@ -1,4 +1,5 @@
 use barnacle_lib::repository::Profile;
+use fluent_i18n::t;
 use iced::{
     Element, Task,
     widget::{button, column, container, row, space, text, text_input},
@@ -71,14 +72,14 @@ impl EditDialog {
     pub fn view(&self) -> Element<'_, Message> {
         container(column![
             row![
-                text("Name: "),
-                text_input("Name", &self.name).on_input(Message::NameInput),
+                text(t!("name")),
+                text_input("...", &self.name).on_input(Message::NameInput),
             ],
             space::vertical(),
             row![
                 space::horizontal(),
-                button("Cancel").on_press(Message::CancelPressed),
-                button("Confirm").on_press(Message::ConfirmPressed),
+                button(text(t!("cancel"))).on_press(Message::CancelPressed),
+                button(text(t!("confirm"))).on_press(Message::ConfirmPressed),
             ],
         ])
         .padding(20)

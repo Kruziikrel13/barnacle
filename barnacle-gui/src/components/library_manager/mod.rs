@@ -1,3 +1,4 @@
+
 use crate::{
     components::library_manager::{new_game_dialog::NewGame, profiles_tab::new_dialog::NewProfile},
     icons::icon,
@@ -7,11 +8,12 @@ use barnacle_lib::{
     Repository,
     repository::{Game, Profile},
 };
+use fluent_i18n::t;
 use iced::{
     Element, Length, Task,
     widget::{Column, button, column, container, row, rule, scrollable, space, text},
 };
-use strum::Display;
+use iced_aw::Spinner;
 use tokio::task::spawn_blocking;
 
 pub mod new_game_dialog;
@@ -41,7 +43,7 @@ pub enum Action {
     Close,
 }
 
-#[derive(Debug, Default, Clone, Copy, Eq, PartialEq, Display)]
+#[derive(Debug, Default, Clone, Copy, Eq, PartialEq)]
 pub enum TabId {
     Overview,
     #[default]
@@ -173,16 +175,19 @@ impl LibraryManager {
 
     pub fn view(&self) -> Element<'_, Message> {
         let title_bar = row![
-            text("Library Manager"),
+            text(t!("library-manager_title")),
             space::horizontal(),
             button(icon("close")).on_press(Message::CloseButtonPressed)
         ];
 
-        let new_game_button =
-            button(row![icon("plus"), text(" New Game")]).on_press(Message::NewGameButtonPressed);
+        let new_game_button = button(row![
+            icon("plus"),
+            text(t!("library-manager_new-game", { "count" => 1 }))
+        ])
+        .on_press(Message::NewGameButtonPressed);
 
         let body: Element<'_, Message> = match &self.state {
-            State::Loading => text("Loading...").into(),
+            State::Loading => Spinner::new().into(),
             State::Error(e) => text(e).into(),
             State::NoGames => column![text("No games"), new_game_button].into(),
             State::Loaded { active_game, games } => {
@@ -191,7 +196,7 @@ impl LibraryManager {
                     .map(|row| game_row(row, active_game, &self.selected_game));
 
                 let games_sidebar = column![
-                    text("Games"),
+                    text(t!("game", { "count" => 2 })),
                     rule::horizontal(1),
                     scrollable(Column::with_children(game_rows)),
                     space::vertical(),
@@ -240,13 +245,17 @@ impl LibraryManager {
     }
 
     fn tab_button(&self, tab: TabId) -> Element<'_, Message> {
+        let label = match tab {
+            TabId::Overview => t!("library-manager_overview"),
+            TabId::Profiles => t!("profile", { "count" => 2 }),
+        };
         let style = if self.active_tab == tab {
             button::primary
         } else {
             button::subtle
         };
 
-        button(text(tab.to_string()))
+        button(text(label))
             .on_press(Message::TabSelected(tab))
             .style(style)
             .into()

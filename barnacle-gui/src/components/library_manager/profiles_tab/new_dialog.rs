@@ -1,10 +1,8 @@
+use fluent_i18n::t;
 use iced::{
     Element, Task,
-    advanced::widget::operate,
     widget::{button, column, container, row, space, text, text_input},
 };
-
-pub const ID: &str = "new_profile_dialog";
 
 #[derive(Debug, Clone)]
 pub enum Message {
@@ -62,14 +60,15 @@ impl NewDialog {
     pub fn view(&self) -> Element<'_, Message> {
         container(column![
             row![
-                text("Name: "),
+                text(t!("name")),
                 text_input("...", &self.name).on_input(Message::NameInput),
             ],
             space::vertical(),
             row![
                 space::horizontal(),
-                button("Cancel").on_press(Message::CancelPressed),
-                button("Create").on_press_maybe(self.validate().then_some(Message::CreatePressed)),
+                button(text(t!("cancel"))).on_press(Message::CancelPressed),
+                button(text(t!("create")))
+                    .on_press_maybe(self.validate().then_some(Message::CreatePressed)),
             ],
         ])
         .padding(20)

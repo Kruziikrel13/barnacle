@@ -1,3 +1,4 @@
+use fluent_i18n::i18n;
 use iced::{
     Color, Element,
     Length::{self},
@@ -12,6 +13,8 @@ use crate::components::App;
 pub mod components;
 pub mod config;
 pub mod icons;
+
+i18n!("locales", fallback = "en-US");
 
 fn main() -> iced::Result {
     human_panic::setup_panic!();

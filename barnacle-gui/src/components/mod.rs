@@ -2,6 +2,7 @@ use std::{path::PathBuf, sync::Arc};
 
 use barnacle_lib::{Repository, repository::Profile};
 use derive_more::{Deref, Display};
+use fluent_i18n::t;
 use iced::{
     Element,
     Length::Fill,
@@ -116,8 +117,10 @@ impl App {
                     profiles,
                 } = &self.state
                 {
-                    self.profile_selector.state = combo_box::State::new(profiles.clone());
-                    self.profile_selector.selected = active_profile.clone();
+                    self.profile_selector = ProfileSelector {
+                        state: combo_box::State::new(profiles.clone()),
+                        selected: active_profile.clone(),
+                    };
 
                     if let Some(active_profile) = active_profile {
                         return self.mod_list.refresh(active_profile).map(Message::ModList);
@@ -242,6 +245,8 @@ impl App {
                     Message::ProfileActivated,
                 )
             }
+            // BUG: For some reason when the active_profile is deleted, the GUI isn't picking up the fact that the
+            // active_profile changed to the next profile in the list, even though this is done in the lib.
             Message::ProfileAdded | Message::ProfileDeleted => Task::batch([
                 self.refresh(),
                 self.library_manager.refresh().map(Message::LibraryManager),
@@ -261,9 +266,9 @@ impl App {
         let content = column![
             // Top bar
             row![
-                button("Launch game"),
+                button(text(t!("main_top-bar_launch-game", { "count" => 1 }))),
                 button(icon("wrench")),
-                text("Profile:"),
+                text(t!("profile", { "count" => 1 })),
                 combo_box(
                     &self.profile_selector.state,
                     "...",
@@ -277,7 +282,7 @@ impl App {
             ],
             // Action bar
             row![
-                button("Add Mod").on_press_maybe(
+                button(text(t!("main_action-bar_add-mod", { "count" => 1 }))).on_press_maybe(
                     self.profile_selector
                         .selected
                         .is_some()
