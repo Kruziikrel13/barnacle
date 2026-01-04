@@ -5,20 +5,17 @@ use std::{
 };
 
 use super::Error;
-use agdb::{CountComparison, DbId, DbValue, QueryBuilder, QueryId};
+use agdb::{CountComparison, DbId, DbValue, QueryBuilder};
 use heck::ToSnakeCase;
 use tracing::debug;
 
-use crate::{
-    Repository,
-    repository::{
-        Cfg,
-        db::{
-            Db,
-            models::{DeployKind, GameModel, ModModel, ProfileModel},
-        },
-        entities::{EntityId, Result, Uid, get_field, mod_::Mod, profile::Profile, set_field},
+use crate::repository::{
+    Cfg,
+    db::{
+        Db,
+        models::{DeployKind, GameModel, ModModel},
     },
+    entities::{EntityId, Result, Uid, get_field, mod_::Mod, profile::Profile, set_field},
 };
 
 /// Represents a game entity in the Barnacle system.
@@ -133,42 +130,7 @@ impl Game {
     }
 
     pub fn add_profile(&self, name: &str) -> Result<Profile> {
-        let model = ProfileModel::new(Uid::new(&self.db)?, name);
-        if self
-            .profiles()?
-            .iter()
-            .any(|p: &Profile| p.name().unwrap() == model.name)
-        {
-            // return Err(Error::UniqueViolation(UniqueConstraint::ProfileName));
-            panic!("Unique violation")
-        }
-
-        let game_id = self.id.db_id(&self.db)?;
-        let profile_id = self.db.write().transaction_mut(|t| -> Result<DbId> {
-            let profile_id = t
-                .exec_mut(QueryBuilder::insert().element(model).query())?
-                .elements
-                .first()
-                .expect("A successful query should not be empty")
-                .id;
-
-            // Link Profile to the specified Game node and root "profiles" node
-            t.exec_mut(
-                QueryBuilder::insert()
-                    .edges()
-                    .from([QueryId::from("profiles"), QueryId::from(game_id)])
-                    .to(profile_id)
-                    .query(),
-            )?;
-
-            Ok(profile_id)
-        })?;
-
-        let profile = Profile::load(profile_id, self.db.clone(), self.cfg.clone())?;
-
-        fs::create_dir_all(profile.dir()?).unwrap();
-
-        Ok(profile)
+        Profile::add(&self.db, &self.cfg, self, name)
     }
 
     pub fn profiles(&self) -> Result<Vec<Profile>> {

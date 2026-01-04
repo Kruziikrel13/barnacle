@@ -88,7 +88,7 @@ impl ModEntry {
                 .exec_mut(QueryBuilder::insert().element(&model).query())?
                 .elements
                 .first()
-                .expect("A successful query should not be empty")
+                .expect("ModEntryModel insertion should return the ID as the first element")
                 .id;
 
             match maybe_last_entry_id {

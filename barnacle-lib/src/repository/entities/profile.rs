@@ -1,11 +1,7 @@
-use std::{
-    fmt::{self, Debug, Display, Formatter},
-    fs,
-    path::PathBuf,
-};
+use std::{fmt::Debug, fs, path::PathBuf};
 
 use super::Error;
-use agdb::{CountComparison, DbId, DbValue, QueryBuilder};
+use agdb::{CountComparison, DbId, DbValue, QueryBuilder, QueryId};
 use heck::ToSnakeCase;
 use tracing::debug;
 
@@ -16,7 +12,7 @@ use crate::repository::{
         models::{GameModel, ProfileModel},
     },
     entities::{
-        EntityId, Result, game::Game, get_field, mod_::Mod, mod_entry::ModEntry, set_field,
+        EntityId, Result, Uid, game::Game, get_field, mod_::Mod, mod_entry::ModEntry, set_field,
     },
 };
 
@@ -138,7 +134,7 @@ impl Profile {
             )?
             .elements
             .pop()
-            .expect("A successful query should not be empty")
+            .expect("a Profile should have a parent Game")
             .id;
 
         Game::load(parent_game_id, self.db.clone(), self.cfg.clone())
@@ -191,6 +187,45 @@ impl Profile {
         debug!("Removed profile: {name}");
 
         Ok(())
+    }
+
+    pub(crate) fn add(db: &Db, cfg: &Cfg, game: &Game, name: &str) -> Result<Self> {
+        let model = ProfileModel::new(Uid::new(&db)?, name);
+        if game
+            .profiles()?
+            .iter()
+            .any(|p: &Profile| p.name().unwrap() == model.name)
+        {
+            // return Err(Error::UniqueViolation(UniqueConstraint::ProfileName));
+            panic!("Unique violation")
+        }
+
+        let game_id = game.id.db_id(db)?;
+        let profile_id = db.write().transaction_mut(|t| -> Result<DbId> {
+            let profile_id = t
+                .exec_mut(QueryBuilder::insert().element(model).query())?
+                .elements
+                .first()
+                .expect("ProfileModel insertion should return the ID as the first element")
+                .id;
+
+            // Link Profile to the specified Game node and root "profiles" node
+            t.exec_mut(
+                QueryBuilder::insert()
+                    .edges()
+                    .from([QueryId::from("profiles"), QueryId::from(game_id)])
+                    .to(profile_id)
+                    .query(),
+            )?;
+
+            Ok(profile_id)
+        })?;
+
+        let profile = Profile::load(profile_id, db.clone(), cfg.clone())?;
+
+        fs::create_dir_all(profile.dir()?).unwrap();
+
+        Ok(profile)
     }
 
     pub(crate) fn list(db: &Db, cfg: &Cfg, game: &Game) -> Result<Vec<Self>> {

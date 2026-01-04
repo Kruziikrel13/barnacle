@@ -7,6 +7,7 @@
 use std::fmt::Debug;
 
 use agdb::{DbId, DbValue, QueryBuilder};
+use derive_more::PartialEq;
 use thiserror::Error;
 
 use crate::repository::db::Db;
@@ -35,8 +36,9 @@ pub enum Error {
     ParentGameMismatch,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub(crate) struct EntityId {
+    #[partial_eq(ignore)]
     db_id: DbId,
     /// A unique idenifier that specifies a particular entity
     uid: Uid,
@@ -53,32 +55,24 @@ impl EntityId {
 
     /// Get the underlying [`DbId`]. This will check to make sure it isn't stale before returning.
     pub fn db_id(&self, db: &Db) -> Result<DbId> {
-        // TODO: Match on DbError kind once the following is completed:
-        // https://github.com/agnesoft/agdb/issues/1687
-        let not_found = format!("Id '{}' not found", self.db_id.as_index());
-
-        let mut values = db
-            .read()
-            .exec(QueryBuilder::select().values("uid").ids(self.db_id).query())
-            .map_err(|e| {
-                if e.description == not_found {
-                    Error::RemovedEntity
-                } else {
-                    Error::Internal(e)
+        let uid = Uid::load(db, self.db_id).map_err(|err| {
+            match err {
+                Error::Internal(e) => {
+                    // TODO: Match on DbError kind once the following is completed:
+                    // https://github.com/agnesoft/agdb/issues/1687
+                    let not_found = format!("Id '{}' not found", self.db_id.as_index());
+                    if e.description == not_found {
+                        Error::RemovedEntity
+                    } else {
+                        Error::Internal(e)
+                    }
                 }
-            })?
-            .elements
-            .pop()
-            .expect("a successful query should not be empty")
-            .values;
+                other => other,
+            }
+        })?;
 
-        let uid = values
-            .pop()
-            .expect("a database entity should have a UID field")
-            .value
-            .to_u64()?;
-
-        if uid != self.uid.0 {
+        // If the UID changed, that means this DbId now refers to a different or deleted entity
+        if uid != self.uid {
             return Err(Error::RemovedEntity);
         }
 
@@ -86,13 +80,7 @@ impl EntityId {
     }
 }
 
-impl PartialEq for EntityId {
-    fn eq(&self, other: &Self) -> bool {
-        self.uid.0 == other.uid.0
-    }
-}
-
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
 pub struct Uid(pub u64);
 
 impl Uid {
@@ -131,10 +119,10 @@ impl Uid {
             .exec(QueryBuilder::select().values("uid").ids(db_id).query())?
             .elements
             .pop()
-            .expect("successful queries should not be empty")
+            .expect("a database element should have a UID field")
             .values
             .pop()
-            .expect("successful queries should not be empty")
+            .expect("a database element should have a UID field")
             .value
             .to_u64()?))
     }
@@ -151,10 +139,10 @@ where
         .exec(QueryBuilder::select().values(field).ids(db_id).query())?
         .elements
         .pop()
-        .expect("successful queries should not be empty")
+        .expect("the given field must exist")
         .values
         .pop()
-        .expect("successful queries should not be empty")
+        .expect("the given field must have a value")
         .value;
 
     Ok(T::try_from(value).expect("conversion from a `DbValue` must succeed"))

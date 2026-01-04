@@ -66,7 +66,7 @@ impl Mod {
             )?
             .elements
             .pop()
-            .expect("A successful query should not be empty")
+            .expect("a Mod should have a parent Game")
             .id;
 
         Game::load(parent_game_id, self.db.clone(), self.cfg.clone())
@@ -87,7 +87,7 @@ impl Mod {
                 .exec_mut(QueryBuilder::insert().element(model).query())?
                 .elements
                 .first()
-                .expect("A successful query should not be empty")
+                .expect("ModModel insertion should return the ID as the first element")
                 .id;
 
             // Link Mod to the specified Game node and root "mods" node
