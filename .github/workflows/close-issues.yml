@@ -21,7 +21,7 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const ALLOWED_USERS = ['Kruziikrel13', 'poperigby']; // Usernames are case specific
-            const CLOSING_COMMENT = 'Users are not allowed to open issues themselves. Please open a discussion instead.\n\nWe are volunteers, and we need your cooperation to make the best software we can. Thank you for understanding!\n\n[Open a discussion here](https://github.com/poperigby/barnacle/discussions/new/choose)'
+            const CLOSING_COMMENT = 'Users are not allowed to open issues themselves. please open a discussion instead.\n\nPlease see [this issue](https://github.com/poperigby/barnacle/issues/63) for why this is the case.\n\nWe are volunteers, and we need your cooperation to make the best software we can. Thank you for understanding!\n\n[Open a discussion here](https://github.com/poperigby/barnacle/discussions/new/choose)'
 
             async function closeUnauthorizedIssue(issueNumber, userName) {
               if (ALLOWED_USERS.includes(userName)) {
