@@ -46,6 +46,7 @@
                 libxkbcommon
                 fontconfig
                 libGL
+                dbus
             ]
         }";
     };
