@@ -27,32 +27,31 @@
       in
       {
         defaultPackage = naersk-lib.buildPackage ./.;
-        devShell = mkShell {
-          packages = with pkgs; [
-            # Tools
-            bacon
+        devShells.default = mkShell {
+          nativeBuildInputs = with pkgs; [
             cargo
-            diesel-cli
-            cargo-info
-            rustPackages.clippy
-            rustfmt
-
-            # Dependencies
+            rustc
             fuse-overlayfs
             libarchive
             openssl
             pkg-config
-            rustc
+            mold-wrapped
+            cargo-tarpaulin
+            cargo-i18n
+          ];
 
-            # Slint
-            fontconfig
-            xorg.libxcb
-            wayland
-            libxkbcommon
-            libGL
+          packages = with pkgs; [
+            # Tools
+            bacon
+            diesel-cli
+            cargo-info
+            rustPackages.clippy
+            rustfmt
+            rust-analyzer
           ];
           env = {
             RUST_SRC_PATH = rustPlatform.rustLibSrc;
+            RUSTFLAGS = "-C link-arg=-fuse-ld=mold"; # Use mold linker
             LD_LIBRARY_PATH = "$LD_LIBRARY_PATH:${
               with pkgs;
               lib.makeLibraryPath [
@@ -60,6 +59,7 @@
                 libxkbcommon
                 fontconfig
                 libGL
+                dbus
               ]
             }";
           };
