@@ -71,6 +71,7 @@ pub struct App {
 }
 
 impl App {
+    pub const TITLE: &str = "Barnacle";
     pub fn new() -> (Self, Task<Message>) {
         let repo = Repository::new();
         let cfg = Arc::new(RwLock::new(GuiConfig::load()));
@@ -84,7 +85,7 @@ impl App {
             Self {
                 repo: repo.clone(),
                 state: State::Loading,
-                title: "Barnacle".into(),
+                title: Self::TITLE.to_string(),
                 theme,
                 show_library_manager: false,
                 show_add_mod_dialog: false,
