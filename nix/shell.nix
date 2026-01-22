@@ -11,12 +11,13 @@ pkgs.mkShell {
   # Rust development tools
   packages = with pkgs; [
     bacon
-    diesel-cli
     cargo-info
     cargo-watch
     rustPackages.clippy
     rustfmt
     rust-analyzer
+    cargo-tarpaulin
+    cargo-i18n
 
     # Useful shell Aliases as "packages"
     (writeShellScriptBin "rmshare" ''
