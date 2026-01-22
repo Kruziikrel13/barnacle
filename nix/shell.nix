@@ -18,6 +18,7 @@ pkgs.mkShell {
     rust-analyzer
     cargo-tarpaulin
     cargo-i18n
+    lldb
 
     # Useful shell Aliases as "packages"
     (writeShellScriptBin "rmshare" ''
