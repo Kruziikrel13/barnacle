@@ -29,11 +29,9 @@ rustPlatform.buildRustPackage (finalAttrs: {
   ];
 
   buildInputs = [
-    fuse-overlayfs
+    fuse-overlayfs # NOTE: Might only be necessary during runtime
     libarchive
     openssl
-    cargo-tarpaulin
-    cargo-i18n
   ];
   cargoHash = "sha256-6I0JKaeVJU5ROPToItwFwEO+UPr5OtFvY8ebJXKm0Yc=";
 
