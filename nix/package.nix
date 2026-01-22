@@ -54,7 +54,8 @@ rustPlatform.buildRustPackage (finalAttrs: {
     homepage = "https://github.com/poperigby/barnacle";
     description = "Fast, powerful mod manager for Linux";
     mainProgram = "barnacle-gui";
-    license = licenses.gpl3;
+    license = licenses.gpl3Only;
+    platforms = platforms.linux;
     maintainers = [
       maintainers.kruziikrel13
       maintainers.poperigby
