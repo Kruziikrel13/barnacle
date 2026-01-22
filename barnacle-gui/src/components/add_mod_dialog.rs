@@ -6,7 +6,7 @@ use iced::{
     Element, Task,
     widget::{button, column, container, row, space, text, text_input},
 };
-use rfd::AsyncFileDialog;
+use rfd::FileDialog;
 
 use crate::icons::icon;
 
@@ -15,7 +15,6 @@ pub enum Message {
     NameChanged(String),
     PathChanged(String),
     PickPath(PickPathKind),
-    PathPicked(Option<String>),
     CancelButtonPressed,
     AddButtonPressed,
 }
@@ -67,19 +66,15 @@ impl AddModDialog {
                 self.path = path;
                 Action::None
             }
-            Message::PickPath(kind) => Action::Run(Task::perform(
-                async move {
-                    let picker = AsyncFileDialog::new().set_directory(env::home_dir().unwrap());
+            Message::PickPath(kind) => {
+                let picker = FileDialog::new().set_directory(env::home_dir().unwrap());
 
-                    match kind {
-                        PickPathKind::Archive => picker.pick_file().await,
-                        PickPathKind::Directory => picker.pick_folder().await,
-                    }
-                    .map(|f| f.path().display().to_string())
-                },
-                Message::PathPicked,
-            )),
-            Message::PathPicked(path) => {
+                let path = match kind {
+                    PickPathKind::Archive => picker.pick_file(),
+                    PickPathKind::Directory => picker.pick_folder(),
+                }
+                .map(|f| f.as_path().display().to_string());
+
                 if let Some(path) = path {
                     self.path = path;
                 }
