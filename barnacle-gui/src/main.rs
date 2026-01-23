@@ -4,6 +4,7 @@ use iced::{
     Length::{self},
     application,
     widget::{center, container, mouse_area, opaque, stack},
+    window::Settings,
 };
 use tracing::Level;
 use tracing_subscriber::{EnvFilter, FmtSubscriber};
@@ -25,9 +26,13 @@ fn main() -> iced::Result {
         .finish();
     tracing::subscriber::set_global_default(subscriber).expect("setting default subscriber failed");
 
+    let mut settings = Settings::default();
+    settings.platform_specific.application_id = App::TITLE.to_string();
+
     application(App::new, App::update, App::view)
         .theme(App::theme)
         .title(App::title)
+        .window(settings)
         .run()
 }
 
