@@ -70,7 +70,10 @@ impl AddModDialog {
                 let picker = FileDialog::new().set_directory(env::home_dir().unwrap());
 
                 let path = match kind {
-                    PickPathKind::Archive => picker.pick_file(),
+                    PickPathKind::Archive => picker
+                        .add_filter("Archives", &["zip", "7z", "rar"])
+                        .add_filter("All Files", &["*"])
+                        .pick_file(),
                     PickPathKind::Directory => picker.pick_folder(),
                 }
                 .map(|f| f.as_path().display().to_string());
