@@ -35,12 +35,12 @@ graph LR
 
     %% Column 3: ModEntries
     subgraph ME[ ]
-        ME1[ModEntry: USSEP enabled]
-        ME2[ModEntry: Mysticism enabled]
-        ME3[ModEntry: Adamant disabled]
+        ME1[ModEntry: USSEP]
+        ME2[ModEntry: Mysticism]
+        ME3[ModEntry: Adamant]
 
-        ME4[ModEntry: USSEP enabled]
-        ME5[ModEntry: Mysticism enabled]
+        ME4[ModEntry: USSEP]
+        ME5[ModEntry: Mysticism]
     end
 
     %% Column 4: Mods
