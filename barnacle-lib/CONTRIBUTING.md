@@ -40,7 +40,7 @@ graph LR
         ME3[ModEntry: Adamant]
 
         ME4[ModEntry: USSEP]
-        ME5[ModEntry: Mysticism]
+        ME5[ModEntry: Adamant]
     end
 
     %% Column 4: Mods
@@ -55,12 +55,12 @@ graph LR
     Skyrim --> MageProfile
 
     %% Profile → ModEntry
-    DefaultProfile --> ME1
-    DefaultProfile --> ME2
-    DefaultProfile --> ME3
+    MageProfile --> ME1
+    MageProfile --> ME2
+    MageProfile --> ME3
 
-    MageProfile --> ME4
-    MageProfile --> ME5
+    DefaultProfile --> ME4
+    DefaultProfile --> ME5
 
     %% ModEntry → Mod
     ME1 --> USSEP
@@ -68,5 +68,5 @@ graph LR
     ME3 --> Adamant
 
     ME4 --> USSEP
-    ME5 --> Mysticism
+    ME5 --> Adamant
 ```
