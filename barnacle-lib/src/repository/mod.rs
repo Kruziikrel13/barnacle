@@ -37,25 +37,20 @@ impl Repository {
         }
     }
 
-    pub fn add_game(&self, name: &str, deploy_kind: DeployKind) -> Result<Game> {
-        Ok(Game::add(
-            &self.db.clone(),
-            self.cfg.clone(),
-            name,
-            deploy_kind,
-        )?)
+    pub fn add_game(&self, name: &str, deploy_kind: DeployKind) -> entities::Result<Game> {
+        Game::add(&self.db.clone(), self.cfg.clone(), name, deploy_kind)
     }
 
-    pub fn games(&self) -> Result<Vec<Game>> {
-        Ok(Game::list(self.db.clone(), self.cfg.clone())?)
+    pub fn games(&self) -> entities::Result<Vec<Game>> {
+        Game::list(self.db.clone(), self.cfg.clone())
     }
 
-    pub fn active_profile(&self) -> Result<Option<Profile>> {
-        Ok(Profile::active(self.db.clone(), self.cfg.clone())?)
+    pub fn active_profile(&self) -> entities::Result<Option<Profile>> {
+        Profile::active(self.db.clone(), self.cfg.clone())
     }
 
-    pub fn active_game(&self) -> Result<Option<Game>> {
-        Ok(Game::active(self.db.clone(), self.cfg.clone())?)
+    pub fn active_game(&self) -> entities::Result<Option<Game>> {
+        Game::active(self.db.clone(), self.cfg.clone())
     }
 
     #[cfg(test)]

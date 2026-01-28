@@ -190,14 +190,13 @@ impl Profile {
     }
 
     pub(crate) fn add(db: &Db, cfg: &Cfg, game: &Game, name: &str) -> Result<Self> {
-        let model = ProfileModel::new(Uid::new(&db)?, name);
+        let model = ProfileModel::new(Uid::new(db)?, name);
         if game
             .profiles()?
             .iter()
             .any(|p: &Profile| p.name().unwrap() == model.name)
         {
-            // return Err(Error::UniqueViolation(UniqueConstraint::ProfileName));
-            panic!("Unique violation")
+            return Err(Error::DuplicateName);
         }
 
         let game_id = game.id.db_id(db)?;
@@ -282,6 +281,19 @@ mod test {
         let profile = game.add_profile("Test").unwrap();
 
         assert!(profile.dir().unwrap().exists());
+    }
+
+    #[test]
+    fn test_add_duplicate() {
+        let repo = Repository::mock();
+
+        let game = repo.add_game("Morrowind", DeployKind::OpenMW).unwrap();
+        game.add_profile("Test").unwrap();
+
+        assert!(matches!(
+            game.add_profile("Test"),
+            Err(Error::DuplicateName)
+        ));
     }
 
     #[test]

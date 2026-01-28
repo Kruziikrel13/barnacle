@@ -17,7 +17,7 @@ use crate::{
             Db,
             models::{GameModel, ModModel},
         },
-        entities::{EntityId, Result, Uid, game::Game, get_field, set_field},
+        entities::{EntityId, Error, Result, Uid, game::Game, get_field, set_field},
     },
 };
 
@@ -79,6 +79,15 @@ impl Mod {
         name: &str,
         path: Option<&Path>,
     ) -> Result<Self> {
+        let model = ModModel::new(Uid::new(&db)?, name);
+        if game
+            .mods()?
+            .iter()
+            .any(|m: &Mod| m.name().unwrap() == model.name)
+        {
+            return Err(Error::DuplicateName);
+        }
+
         let game_id = game.id.db_id(&db)?;
 
         let model = ModModel::new(Uid::new(&db)?, name);
@@ -157,7 +166,10 @@ impl PartialEq for Mod {
 
 #[cfg(test)]
 mod test {
-    use crate::{Repository, repository::DeployKind};
+    use crate::{
+        Repository,
+        repository::{DeployKind, entities::Error},
+    };
 
     #[test]
     fn test_add() {
@@ -167,6 +179,19 @@ mod test {
         let mod_ = game.add_mod("Test", None).unwrap();
 
         assert!(mod_.dir().unwrap().exists());
+    }
+
+    #[test]
+    fn test_add_duplicate() {
+        let repo = Repository::mock();
+
+        let game = repo.add_game("Morrowind", DeployKind::OpenMW).unwrap();
+        game.add_mod("Test", None).unwrap();
+
+        assert!(matches!(
+            game.add_mod("Test", None),
+            Err(Error::DuplicateName)
+        ));
     }
 
     #[test]

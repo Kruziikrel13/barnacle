@@ -34,6 +34,8 @@ pub enum Error {
     RemovedEntity,
     #[error("The profile you are trying to make active is not a child of the active game")]
     ParentGameMismatch,
+    #[error("An entity with the given name already exists")]
+    DuplicateName,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]

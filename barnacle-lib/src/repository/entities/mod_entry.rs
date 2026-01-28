@@ -74,6 +74,8 @@ impl ModEntry {
     }
 
     pub(crate) fn add(db: &Db, cfg: &Cfg, profile: &Profile, mod_: Mod) -> Result<Self> {
+        let model = ModEntryModel::new(Uid::new(db)?);
+
         let profile_id = profile.id.db_id(db)?;
         let mod_id = mod_.id.db_id(db)?;
 
@@ -82,7 +84,6 @@ impl ModEntry {
             .last()
             .map(|e| e.entry_id.db_id(db).unwrap());
 
-        let model = ModEntryModel::new(Uid::new(db)?);
         let entry_id = db.write().transaction_mut(|t| -> Result<DbId> {
             let entry_id = t
                 .exec_mut(QueryBuilder::insert().element(&model).query())?

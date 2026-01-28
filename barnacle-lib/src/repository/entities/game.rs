@@ -167,8 +167,7 @@ impl Game {
             .iter()
             .any(|g| g.name().unwrap() == name)
         {
-            // return Err(Error::UniqueViolation(UniqueConstraint::GameName));
-            panic!("UniqueViolation");
+            return Err(Error::DuplicateName);
         }
 
         let model = GameModel::new(Uid::new(db)?, name, deploy_kind);
@@ -334,6 +333,18 @@ mod test {
             games.last().unwrap().deploy_kind().unwrap(),
             DeployKind::CreationEngine
         );
+    }
+
+    #[test]
+    fn test_add_duplicate() {
+        let repo = Repository::mock();
+
+        let game = repo.add_game("Morrowind", DeployKind::OpenMW).unwrap();
+
+        assert!(matches!(
+            repo.add_game("Morrowind", DeployKind::OpenMW),
+            Err(Error::DuplicateName)
+        ));
     }
 
     #[test]
