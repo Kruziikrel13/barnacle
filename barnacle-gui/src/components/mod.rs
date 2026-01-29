@@ -248,6 +248,9 @@ impl App {
             }
             // BUG: For some reason when the active_profile is deleted, the GUI isn't picking up the fact that the
             // active_profile changed to the next profile in the list, even though this is done in the lib.
+            //
+            // TODO: Update the mod list too. If the profile it's referring to is deleted, it needs
+            // to know.
             Message::ProfileAdded | Message::ProfileDeleted => Task::batch([
                 self.refresh(),
                 self.library_manager.refresh().map(Message::LibraryManager),

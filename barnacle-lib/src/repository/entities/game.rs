@@ -289,6 +289,10 @@ impl Game {
         Ok(None)
     }
 
+    pub fn active_profile(&self) -> Result<Option<Profile>> {
+        Profile::active(self.db.clone(), self.cfg.clone(), self.clone())
+    }
+
     fn get_field<T>(&self, field: &str) -> Result<T>
     where
         T: TryFrom<DbValue>,

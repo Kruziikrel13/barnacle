@@ -45,17 +45,13 @@ impl Repository {
         Game::list(self.db.clone(), self.cfg.clone())
     }
 
-    pub fn active_profile(&self) -> entities::Result<Option<Profile>> {
-        Profile::active(self.db.clone(), self.cfg.clone())
-    }
-
     pub fn active_game(&self) -> entities::Result<Option<Game>> {
         Game::active(self.db.clone(), self.cfg.clone())
     }
 
     #[cfg(test)]
-    /// Return are mock version of a [`Repository`] with an in-memory database and configuration
-    /// file.
+    /// A mock version of a [`Repository`] with an in-memory database and configuration
+    /// file, for using in tests.
     pub(crate) fn mock() -> Self {
         Self {
             db: Db::in_memory(),

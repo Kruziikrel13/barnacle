@@ -64,32 +64,31 @@ impl Profile {
 
     /// Make this profile the active one
     pub fn make_active(&self) -> Result<()> {
-        let active_game = Game::active(self.db.clone(), self.cfg.clone())?;
-        if Some(self.parent()?) != active_game {
-            return Err(Error::ParentGameMismatch);
-        }
-
+        let parent_db_id = self.parent()?.id.db_id(&self.db)?;
         let db_id = self.id.db_id(&self.db)?;
         self.db.write().transaction_mut(|t| {
-            // Delete existing active_profile, if it exists
+            // Remove `active` field from edge pointing to existing active profile, if present
             t.exec_mut(
                 QueryBuilder::remove()
+                    .values("active")
                     .search()
-                    .from("active_profile")
+                    .from(parent_db_id)
                     .where_()
                     .edge()
                     .and()
-                    // Only delete the first edge. We don't want to accidentally wipe out all edges
-                    // coming from active_profile
+                    // Only delete the `active` field on edges terminating at profiles.
                     .distance(CountComparison::Equal(1))
                     .query(),
             )?;
-            // Insert a new edge from active_profile to new profile_id
+            // Add `active` field to edge pointing to this profile
             t.exec_mut(
                 QueryBuilder::insert()
-                    .edges()
-                    .from("active_profile")
+                    .values([[("active", true).into()]])
+                    .search()
+                    .from(parent_db_id)
                     .to(db_id)
+                    .where_()
+                    .edge()
                     .query(),
             )?;
 
@@ -98,25 +97,49 @@ impl Profile {
     }
 
     pub fn is_active(&self) -> Result<bool> {
-        Ok(Profile::active(self.db.clone(), self.cfg.clone())? == Some(self.clone()))
+        Ok(
+            Profile::active(self.db.clone(), self.cfg.clone(), self.parent()?)?
+                == Some(self.clone()),
+        )
     }
 
-    pub(crate) fn active(db: Db, cfg: Cfg) -> Result<Option<Profile>> {
-        let query = db.read().exec(
-            QueryBuilder::select()
-                .elements::<ProfileModel>()
-                .search()
-                .from("active_profile")
-                .where_()
-                .neighbor()
-                .query(),
-        )?;
+    pub(crate) fn active(db: Db, cfg: Cfg, game: Game) -> Result<Option<Profile>> {
+        let game_id = game.id.db_id(&db)?;
 
-        if let Some(db_id) = query.elements.first().map(|p| p.id) {
-            Profile::load(db_id, db.clone(), cfg.clone()).map(Some)
-        } else {
-            Ok(None)
-        }
+        db.read().transaction(|t| {
+            let edge_id = match t
+                .exec(
+                    QueryBuilder::select()
+                        .search()
+                        .from(game_id)
+                        .where_()
+                        .keys("active")
+                        .query(),
+                )?
+                .elements
+                .first()
+            {
+                Some(e) => e.id,
+                None => return Ok(None),
+            };
+
+            let profile_id = match t
+                .exec(
+                    QueryBuilder::select()
+                        .elements::<ProfileModel>()
+                        .search()
+                        .from(edge_id)
+                        .query(),
+                )?
+                .elements
+                .first()
+            {
+                Some(p) => p.id,
+                None => return Ok(None),
+            };
+
+            Ok(Some(Profile::load(profile_id, db.clone(), cfg)?))
+        })
     }
 
     /// Returns the parent [`Game`] of this [`Profile`]
@@ -362,49 +385,8 @@ mod test {
         game.make_active().unwrap();
         profile.make_active().unwrap();
 
-        assert_eq!(repo.active_profile().unwrap().unwrap(), profile);
+        assert_eq!(game.active_profile().unwrap().unwrap(), profile);
         assert!(profile.is_active().unwrap());
         assert_eq!(repo.active_game().unwrap().unwrap(), game);
-    }
-
-    #[test]
-    fn test_make_active_game_mismatch() {
-        let repo = Repository::mock();
-
-        let morrowind = repo.add_game("Morrowind", DeployKind::OpenMW).unwrap();
-        let skyrim = repo.add_game("Skyrim", DeployKind::CreationEngine).unwrap();
-
-        let profile = morrowind.add_profile("Test").unwrap();
-
-        skyrim.make_active().unwrap();
-
-        assert!(matches!(
-            profile.make_active(),
-            Err(Error::ParentGameMismatch)
-        ))
-    }
-
-    /// Make sure the query for deleting the old edge from active_profile is wiping out any other
-    /// edges.
-    #[test]
-    fn test_make_active_old_mod_entries_not_deleted() {
-        let repo = Repository::mock();
-
-        let game = repo.add_game("Morrowind", DeployKind::OpenMW).unwrap();
-
-        let mod1 = game.add_mod("BIG BOOBA", None).unwrap();
-        let mod2 = game.add_mod("BIG BOOBA 2", None).unwrap();
-
-        let profile1 = game.add_profile("Test").unwrap();
-        profile1.make_active().unwrap();
-        profile1.add_mod_entry(mod1).unwrap();
-        profile1.add_mod_entry(mod2).unwrap();
-
-        assert_eq!(profile1.mod_entries().unwrap().len(), 2);
-
-        let profile2 = game.add_profile("Test2").unwrap();
-        profile2.make_active().unwrap();
-
-        assert_eq!(profile1.mod_entries().unwrap().len(), 2);
     }
 }
