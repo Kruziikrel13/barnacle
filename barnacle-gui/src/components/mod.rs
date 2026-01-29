@@ -139,12 +139,16 @@ impl App {
                     Task::perform(
                         async {
                             spawn_blocking(move || {
-                                if let Some(profile) = repo.active_profile().unwrap() {
-                                    let game = profile.parent().unwrap();
+                                if let Some(active_game) = repo.active_game().unwrap() {
+                                    let mod_ = active_game
+                                        .add_mod(&name, Some(&PathBuf::from(path)))
+                                        .unwrap();
 
-                                    let mod_ =
-                                        game.add_mod(&name, Some(&PathBuf::from(path))).unwrap();
-                                    profile.add_mod_entry(mod_).unwrap();
+                                    if let Some(active_profile) =
+                                        active_game.active_profile().unwrap()
+                                    {
+                                        active_profile.add_mod_entry(mod_).unwrap();
+                                    }
                                 }
                             })
                             .await
@@ -330,7 +334,7 @@ fn load_state(repo: Repository) -> Task<Message> {
         async {
             spawn_blocking(move || {
                 if let Some(active_game) = repo.active_game().unwrap() {
-                    let active_profile = repo.active_profile().unwrap();
+                    let active_profile = active_game.active_profile().unwrap();
                     State::Loaded {
                         active_profile: active_profile.map(|p| ProfileOption {
                             entity: p.clone(),
