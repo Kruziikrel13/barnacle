@@ -1,0 +1,12 @@
+[package]
+name = "barnacle-cli"
+version.workspace = true
+edition.workspace = true
+homepage.workspace = true
+
+[dependencies]
+barnacle-lib = { path = "../barnacle-lib" }
+clap = { version = "4.5.56", features = ["derive"] }
+
+[lints]
+workspace = true
