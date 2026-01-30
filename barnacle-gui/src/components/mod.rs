@@ -241,7 +241,7 @@ impl App {
                 Task::perform(
                     async {
                         spawn_blocking(move || {
-                            profile.make_active().unwrap();
+                            profile.activate().unwrap();
                             profile.entity
                         })
                         .await

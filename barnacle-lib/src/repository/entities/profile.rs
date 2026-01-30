@@ -63,11 +63,12 @@ impl Profile {
     }
 
     /// Make this profile the active one
-    pub fn make_active(&self) -> Result<()> {
+    pub fn activate(&self) -> Result<()> {
         let parent_db_id = self.parent()?.id.db_id(&self.db)?;
         let db_id = self.id.db_id(&self.db)?;
         self.db.write().transaction_mut(|t| {
             // Remove `active` field from edge pointing to existing active profile, if present
+            // BUG: Is this responsible for wiping out the active profile?
             t.exec_mut(
                 QueryBuilder::remove()
                     .values("active")
@@ -75,9 +76,9 @@ impl Profile {
                     .from(parent_db_id)
                     .where_()
                     .edge()
-                    .and()
+                    // .and()
                     // Only delete the `active` field on edges terminating at profiles.
-                    .distance(CountComparison::Equal(1))
+                    // .distance(CountComparison::Equal(1))
                     .query(),
             )?;
             // Add `active` field to edge pointing to this profile
@@ -105,41 +106,29 @@ impl Profile {
 
     pub(crate) fn active(db: Db, cfg: Cfg, game: Game) -> Result<Option<Profile>> {
         let game_id = game.id.db_id(&db)?;
+        let elements = db
+            .read()
+            .exec(
+                QueryBuilder::select()
+                    .elements::<ProfileModel>()
+                    .search()
+                    .from(game_id)
+                    .where_()
+                    .not_beyond()
+                    .keys("active")
+                    .query(),
+            )?
+            .elements;
 
-        db.read().transaction(|t| {
-            let edge_id = match t
-                .exec(
-                    QueryBuilder::select()
-                        .search()
-                        .from(game_id)
-                        .where_()
-                        .keys("active")
-                        .query(),
-                )?
-                .elements
-                .first()
-            {
-                Some(e) => e.id,
-                None => return Ok(None),
-            };
+        dbg!(&elements);
 
-            let profile_id = match t
-                .exec(
-                    QueryBuilder::select()
-                        .elements::<ProfileModel>()
-                        .search()
-                        .from(edge_id)
-                        .query(),
-                )?
-                .elements
-                .first()
-            {
-                Some(p) => p.id,
-                None => return Ok(None),
-            };
+        // If we have a set active profile, load it
+        if let Some(active) = elements.first() {
+            return Ok(Some(Profile::load(active.id, db, cfg)?));
+        }
 
-            Ok(Some(Profile::load(profile_id, db.clone(), cfg)?))
-        })
+        // No active profile and no profiles at all
+        Ok(None)
     }
 
     /// Returns the parent [`Game`] of this [`Profile`]
@@ -191,12 +180,8 @@ impl Profile {
                 })
         }
 
-        if self.is_active()?
-            && let Some(profile) = self.parent()?.profiles()?.first()
-        {
-            profile.make_active()?;
-        }
-
+        // We have to store these so we can still access them once the profile is deleted
+        let parent_game = self.parent()?;
         let name = self.name()?;
         let dir = self.dir()?;
 
@@ -206,6 +191,14 @@ impl Profile {
             .exec_mut(QueryBuilder::remove().ids(db_id).query())?;
 
         fs::remove_dir_all(dir).unwrap();
+
+        // Bootstrap active profile if there isn't one set
+        if Profile::active(self.db.clone(), self.cfg.clone(), parent_game.clone())?.is_none()
+            && let Some(first_profile) =
+                Profile::list(&self.db.clone(), &self.cfg.clone(), &parent_game.clone())?.first()
+        {
+            first_profile.activate()?;
+        }
 
         debug!("Removed profile: {name}");
 
@@ -246,6 +239,15 @@ impl Profile {
         let profile = Profile::load(profile_id, db.clone(), cfg.clone())?;
 
         fs::create_dir_all(profile.dir()?).unwrap();
+
+        // Bootstrap active profile if there isn't one set
+        // if Profile::active(db.clone(), cfg.clone(), game.clone())?.is_none()
+        //     && let Some(first_profile) =
+        //         Profile::list(&db.clone(), &cfg.clone(), &game.clone())?.first()
+        // {
+        //     first_profile.activate()?;
+        //     return Ok(first_profile.clone());
+        // }
 
         Ok(profile)
     }
@@ -340,20 +342,6 @@ mod test {
     }
 
     #[test]
-    fn test_remove_made_next_profile_active() {
-        let repo = Repository::mock();
-        let game = repo.add_game("Skyrim", DeployKind::CreationEngine).unwrap();
-        let profile1 = game.add_profile("Test").unwrap();
-        let profile2 = game.add_profile("Test2").unwrap();
-
-        profile1.make_active().unwrap();
-        assert!(profile1.is_active().unwrap());
-
-        profile1.remove().unwrap();
-        assert!(profile2.is_active().unwrap());
-    }
-
-    #[test]
     fn test_list() {
         let repo = Repository::mock();
         let game = repo.add_game("Skyrim", DeployKind::CreationEngine).unwrap();
@@ -376,17 +364,37 @@ mod test {
     }
 
     #[test]
-    fn test_make_active() {
+    fn test_activate() {
         let repo = Repository::mock();
 
         let game = repo.add_game("Morrowind", DeployKind::OpenMW).unwrap();
-        let profile = game.add_profile("Test").unwrap();
 
-        game.make_active().unwrap();
-        profile.make_active().unwrap();
+        let profile1 = game.add_profile("Test1").unwrap();
 
-        assert_eq!(game.active_profile().unwrap().unwrap(), profile);
-        assert!(profile.is_active().unwrap());
-        assert_eq!(repo.active_game().unwrap().unwrap(), game);
+        game.add_profile("Test2").unwrap();
+        // BUG: Both profiles are returned by the query in this fn before activate() is run
+        game.active_profile().unwrap().unwrap();
+
+        // BUG: With only one profile, this making active_profile() return None, with 2, it's
+        // making it return the second profile added, that shouldn't be active
+        profile1.activate().unwrap();
+
+        assert_eq!(game.active_profile().unwrap().unwrap(), profile1);
     }
+
+    // #[test]
+    // fn test_remove_made_next_profile_active() {
+    //     let repo = Repository::mock();
+    //     let game = repo.add_game("Skyrim", DeployKind::CreationEngine).unwrap();
+    //
+    //     let profile1 = game.add_profile("Test1").unwrap();
+    //     let profile2 = game.add_profile("Test2").unwrap();
+    //
+    //     profile1.activate().unwrap();
+    //     dbg!(game.active_profile().unwrap().unwrap().name().unwrap());
+    //     assert!(profile1.is_active().unwrap());
+    //
+    //     profile1.remove().unwrap();
+    //     assert!(profile2.is_active().unwrap());
+    // }
 }

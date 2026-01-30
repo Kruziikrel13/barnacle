@@ -108,21 +108,22 @@ impl Game {
                 })
         }
 
-        if self.is_active()?
-            && let Some(game) = Game::list(self.db.clone(), self.cfg.clone())?.first()
-        {
-            game.make_active()?;
-        }
-
+        // We have to store these so we can still access them once the game is deleted
         let name = self.name()?;
         let dir = self.dir()?;
-
         let id = self.id.db_id(&self.db)?;
         self.db
             .write()
             .exec_mut(QueryBuilder::remove().ids(id).query())?;
 
         fs::remove_dir_all(dir).unwrap();
+
+        // Bootstrap active game if there isn't one set
+        if Game::active(self.db.clone(), self.cfg.clone())?.is_none()
+            && let Some(first_game) = Game::list(self.db.clone(), self.cfg.clone())?.first()
+        {
+            first_game.activate()?;
+        }
 
         debug!("Removed game: {name}");
 
@@ -196,6 +197,13 @@ impl Game {
 
         fs::create_dir_all(game.dir().unwrap()).unwrap();
 
+        // Bootstrap active game if there isn't one set
+        if Game::active(db.clone(), cfg.clone())?.is_none()
+            && let Some(first_game) = Game::list(db.clone(), cfg.clone())?.first()
+        {
+            first_game.activate()?;
+        }
+
         debug!("Created new game: {}", game.name()?);
 
         Ok(game)
@@ -218,9 +226,8 @@ impl Game {
     }
 
     /// Make this game the active one
-    pub fn make_active(&self) -> Result<()> {
+    pub fn activate(&self) -> Result<()> {
         let db_id = self.id.db_id(&self.db)?;
-
         self.db.write().transaction_mut(|t| -> Result<()> {
             // Delete existing active_game, if it exists
             t.exec_mut(
@@ -247,10 +254,6 @@ impl Game {
             Ok(())
         })?;
 
-        if let Some(first_profile) = self.profiles()?.first() {
-            first_profile.make_active()?;
-        };
-
         Ok(())
     }
 
@@ -272,20 +275,12 @@ impl Game {
             )?
             .elements;
 
-        let games = Game::list(db.clone(), cfg.clone())?;
-
         // If we have a set active game, load it
         if let Some(active) = elements.first() {
             return Ok(Some(Game::load(active.id, db, cfg)?));
         }
 
-        // Bootstrap the active game if it isn't set and we have games
-        if let Some(first) = games.first() {
-            first.make_active()?;
-            return Ok(Some(first.clone()));
-        }
-
-        // No active game and no games at all
+        // No active game
         Ok(None)
     }
 
@@ -379,7 +374,7 @@ mod test {
         let game1 = repo.add_game("Skyrim", DeployKind::CreationEngine).unwrap();
         let game2 = repo.add_game("Morrowind", DeployKind::OpenMW).unwrap();
 
-        game1.make_active().unwrap();
+        game1.activate().unwrap();
         assert!(game1.is_active().unwrap());
 
         game1.remove().unwrap();
@@ -450,12 +445,12 @@ mod test {
     }
 
     #[test]
-    fn test_make_active() {
+    fn test_activate() {
         let repo = Repository::mock();
 
         let game = repo.add_game("Morrowind", DeployKind::OpenMW).unwrap();
 
-        game.make_active().unwrap();
+        game.activate().unwrap();
 
         assert!(game.is_active().unwrap());
         assert_eq!(repo.active_game().unwrap().unwrap(), game);
