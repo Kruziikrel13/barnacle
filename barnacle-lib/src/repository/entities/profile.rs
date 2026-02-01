@@ -110,12 +110,15 @@ impl Profile {
             .read()
             .exec(
                 QueryBuilder::select()
-                    .elements::<ProfileModel>()
                     .search()
                     .from(game_id)
                     .where_()
-                    .not_beyond()
+                    .beyond()
+                    .where_()
                     .keys("active")
+                    .or()
+                    .node()
+                    .end_where()
                     .and()
                     .element::<ProfileModel>()
                     .query(),
@@ -124,7 +127,11 @@ impl Profile {
 
         dbg!(&elements);
 
-        // If we have a set active profile, load it
+        if elements.len() > 1 {
+            panic!("there should only be one active profile");
+        }
+
+        // If we have an active profile, load it
         if let Some(active) = elements.first() {
             return Ok(Some(Profile::load(active.id, db, cfg)?));
         }
@@ -372,13 +379,8 @@ mod test {
         let game = repo.add_game("Morrowind", DeployKind::OpenMW).unwrap();
 
         let profile1 = game.add_profile("Test1").unwrap();
-
         game.add_profile("Test2").unwrap();
-        // BUG: Both profiles are returned by the query in this fn before activate() is run
-        game.active_profile().unwrap().unwrap();
 
-        // BUG: With only one profile, this making active_profile() return None, with 2, it's
-        // making it return the second profile added, that shouldn't be active
         profile1.activate().unwrap();
 
         assert_eq!(game.active_profile().unwrap().unwrap(), profile1);
