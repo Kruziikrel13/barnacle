@@ -1,9 +1,9 @@
 use std::{fmt::Debug, fs, path::PathBuf};
 
 use super::Error;
-use agdb::{CountComparison, DbId, DbValue, QueryBuilder, QueryId};
+use agdb::{DbId, DbValue, QueryBuilder, QueryId};
 use heck::ToSnakeCase;
-use tracing::debug;
+use tracing::info;
 
 use crate::repository::{
     Cfg,
@@ -207,7 +207,7 @@ impl Profile {
             first_profile.activate()?;
         }
 
-        debug!("Removed profile: {name}");
+        info!("Removed profile: {name}");
 
         Ok(())
     }

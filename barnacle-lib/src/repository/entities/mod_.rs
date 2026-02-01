@@ -7,7 +7,7 @@ use std::{
 use agdb::{DbId, DbValue, QueryBuilder, QueryId};
 use compress_tools::{Ownership, uncompress_archive};
 use heck::ToSnakeCase;
-use tracing::debug;
+use tracing::info;
 
 use crate::{
     fs::{Permissions, change_dir_permissions},
@@ -137,7 +137,7 @@ impl Mod {
 
         fs::remove_dir_all(dir).unwrap();
 
-        debug!("Removed mod: {name}");
+        info!("Removed mod: {name}");
 
         Ok(())
     }

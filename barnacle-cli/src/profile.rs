@@ -1,6 +1,5 @@
 use barnacle_lib::Repository;
 use clap::Subcommand;
-use cliux::List;
 
 #[derive(Subcommand, Debug, Clone)]
 pub enum Command {
