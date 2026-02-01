@@ -116,6 +116,8 @@ impl Profile {
                     .where_()
                     .not_beyond()
                     .keys("active")
+                    .and()
+                    .element::<ProfileModel>()
                     .query(),
             )?
             .elements;
