@@ -250,13 +250,13 @@ impl Profile {
         fs::create_dir_all(profile.dir()?).unwrap();
 
         // Bootstrap active profile if there isn't one set
-        // if Profile::active(db.clone(), cfg.clone(), game.clone())?.is_none()
-        //     && let Some(first_profile) =
-        //         Profile::list(&db.clone(), &cfg.clone(), &game.clone())?.first()
-        // {
-        //     first_profile.activate()?;
-        //     return Ok(first_profile.clone());
-        // }
+        if Profile::active(db.clone(), cfg.clone(), game.clone())?.is_none()
+            && let Some(first_profile) =
+                Profile::list(&db.clone(), &cfg.clone(), &game.clone())?.first()
+        {
+            first_profile.activate()?;
+            return Ok(first_profile.clone());
+        }
 
         Ok(profile)
     }
@@ -379,26 +379,28 @@ mod test {
         let game = repo.add_game("Morrowind", DeployKind::OpenMW).unwrap();
 
         let profile1 = game.add_profile("Test1").unwrap();
-        game.add_profile("Test2").unwrap();
+        let profile2 = game.add_profile("Test2").unwrap();
 
-        profile1.activate().unwrap();
+        // First profile should have been automatically set as active
+        assert!(profile1.is_active().unwrap());
 
-        assert_eq!(game.active_profile().unwrap().unwrap(), profile1);
+        profile2.activate().unwrap();
+
+        assert!(profile2.is_active().unwrap());
     }
 
-    // #[test]
-    // fn test_remove_made_next_profile_active() {
-    //     let repo = Repository::mock();
-    //     let game = repo.add_game("Skyrim", DeployKind::CreationEngine).unwrap();
-    //
-    //     let profile1 = game.add_profile("Test1").unwrap();
-    //     let profile2 = game.add_profile("Test2").unwrap();
-    //
-    //     profile1.activate().unwrap();
-    //     dbg!(game.active_profile().unwrap().unwrap().name().unwrap());
-    //     assert!(profile1.is_active().unwrap());
-    //
-    //     profile1.remove().unwrap();
-    //     assert!(profile2.is_active().unwrap());
-    // }
+    #[test]
+    fn test_remove_made_next_profile_active() {
+        let repo = Repository::mock();
+        let game = repo.add_game("Skyrim", DeployKind::CreationEngine).unwrap();
+
+        let profile1 = game.add_profile("Test1").unwrap();
+        let profile2 = game.add_profile("Test2").unwrap();
+
+        profile1.activate().unwrap();
+        assert!(profile1.is_active().unwrap());
+
+        profile1.remove().unwrap();
+        assert!(profile2.is_active().unwrap());
+    }
 }
