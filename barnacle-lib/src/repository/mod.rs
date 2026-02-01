@@ -45,6 +45,10 @@ impl Repository {
         Game::list(self.db.clone(), self.cfg.clone())
     }
 
+    pub fn search_game(&self, name: &str) -> entities::Result<Option<Game>> {
+        Game::search(self.db.clone(), self.cfg.clone(), name)
+    }
+
     pub fn active_game(&self) -> entities::Result<Option<Game>> {
         Game::active(self.db.clone(), self.cfg.clone())
     }

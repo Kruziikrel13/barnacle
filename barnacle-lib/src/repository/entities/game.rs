@@ -225,6 +225,25 @@ impl Game {
             .collect())
     }
 
+    /// Search for a game by name
+    pub(crate) fn search(db: Db, cfg: Cfg, name: &str) -> Result<Option<Game>> {
+        db.read()
+            .exec(
+                QueryBuilder::select()
+                    .element::<GameModel>()
+                    .search()
+                    .from("games")
+                    .where_()
+                    .key("name")
+                    .value(name)
+                    .query(),
+            )?
+            .elements
+            .first()
+            .map(|g| Game::load(g.id, db.clone(), cfg.clone()))
+            .transpose()
+    }
+
     /// Make this game the active one
     pub fn activate(&self) -> Result<()> {
         let db_id = self.id.db_id(&self.db)?;
@@ -262,8 +281,7 @@ impl Game {
     }
 
     pub(crate) fn active(db: Db, cfg: Cfg) -> Result<Option<Game>> {
-        let elements = db
-            .read()
+        db.read()
             .exec(
                 QueryBuilder::select()
                     .elements::<GameModel>()
@@ -273,19 +291,19 @@ impl Game {
                     .neighbor()
                     .query(),
             )?
-            .elements;
-
-        // If we have a set active game, load it
-        if let Some(active) = elements.first() {
-            return Ok(Some(Game::load(active.id, db, cfg)?));
-        }
-
-        // No active game
-        Ok(None)
+            .elements
+            .first()
+            .map(|g| Game::load(g.id, db.clone(), cfg.clone()))
+            .transpose()
     }
 
     pub fn active_profile(&self) -> Result<Option<Profile>> {
         Profile::active(self.db.clone(), self.cfg.clone(), self.clone())
+    }
+
+    /// Search for the given profile by name
+    pub fn search_profile(&self, name: &str) -> Result<Option<Profile>> {
+        Profile::search(self.db.clone(), self.cfg.clone(), self, name)
     }
 
     fn get_field<T>(&self, field: &str) -> Result<T>

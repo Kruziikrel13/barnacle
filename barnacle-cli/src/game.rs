@@ -7,6 +7,8 @@ pub enum Command {
     List,
     /// Add a new game
     Add { name: String },
+    /// Activate the given game
+    Activate { name: String },
 }
 
 pub fn handle(repo: &Repository, cmd: &Command) {
@@ -19,6 +21,10 @@ pub fn handle(repo: &Repository, cmd: &Command) {
         }
         Command::Add { name } => {
             repo.add_game(name, DeployKind::Overlay).unwrap();
+        }
+        Command::Activate { name } => {
+            let game = repo.search_game(name).unwrap().expect("game not found");
+            game.activate().unwrap();
         }
     }
 }

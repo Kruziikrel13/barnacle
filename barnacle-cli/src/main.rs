@@ -5,6 +5,7 @@ use tracing::Level;
 use tracing_subscriber::{EnvFilter, FmtSubscriber};
 
 mod game;
+mod mod_;
 mod profile;
 
 #[derive(Parser, Debug)]
@@ -31,6 +32,9 @@ enum Command {
     /// Operate on profiles
     #[command(subcommand)]
     Profile(profile::Command),
+    /// Operate on mods
+    #[command(subcommand)]
+    Mod(mod_::Command),
 }
 
 fn main() {
@@ -49,6 +53,7 @@ fn main() {
         Some(cmd) => match cmd {
             Command::Game(cmd) => game::handle(&repo, cmd),
             Command::Profile(cmd) => profile::handle(&repo, cmd),
+            Command::Mod(cmd) => mod_::handle(&repo, cmd),
         },
         None => status(&repo),
     }

@@ -125,8 +125,6 @@ impl Profile {
             )?
             .elements;
 
-        dbg!(&elements);
-
         if elements.len() > 1 {
             panic!("there should only be one active profile");
         }
@@ -276,6 +274,26 @@ impl Profile {
             .iter()
             .map(|e| Profile::load(e.id, db.clone(), cfg.clone()).unwrap())
             .collect())
+    }
+
+    /// Search for a profile under the given game by name
+    pub(crate) fn search(db: Db, cfg: Cfg, game: &Game, name: &str) -> Result<Option<Profile>> {
+        let game_id = game.id.db_id(&db)?;
+        db.read()
+            .exec(
+                QueryBuilder::select()
+                    .element::<ProfileModel>()
+                    .search()
+                    .from(game_id)
+                    .where_()
+                    .key("name")
+                    .value(name)
+                    .query(),
+            )?
+            .elements
+            .first()
+            .map(|p| Profile::load(p.id, db.clone(), cfg.clone()))
+            .transpose()
     }
 
     fn get_field<T>(&self, field: &str) -> Result<T>
