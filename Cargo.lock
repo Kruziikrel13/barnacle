@@ -390,6 +390,7 @@ dependencies = [
  "cliux",
  "colored",
  "human-panic",
+ "sysexits",
  "tracing",
  "tracing-subscriber",
 ]
@@ -4068,6 +4069,12 @@ checksum = "8eab9a99a024a169fe8a903cf9d4a3b3601109bcc13bd9e3c6fff259138626c4"
 dependencies = [
  "libc",
 ]
+
+[[package]]
+name = "sysexits"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9f3613ad1bd92252ed318c3b30812e739b6574b2adb7e8656b07e3a1793a2397"
 
 [[package]]
 name = "sysinfo"

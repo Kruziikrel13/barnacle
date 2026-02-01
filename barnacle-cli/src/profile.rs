@@ -1,5 +1,6 @@
 use barnacle_lib::Repository;
 use clap::Subcommand;
+use sysexits::ExitCode;
 
 #[derive(Subcommand, Debug, Clone)]
 pub enum Command {
@@ -32,6 +33,7 @@ pub fn handle(repo: &Repository, cmd: &Command) {
             }
         }
     } else {
-        println!("No active game")
+        println!("No active game");
+        ExitCode::Usage.exit()
     }
 }
