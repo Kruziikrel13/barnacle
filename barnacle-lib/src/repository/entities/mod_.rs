@@ -83,7 +83,7 @@ impl Mod {
         if game
             .mods()?
             .iter()
-            .any(|m: &Mod| m.name().unwrap() == model.name)
+            .any(|m: &Mod| m.name().unwrap() == model.name())
         {
             return Err(Error::DuplicateName);
         }

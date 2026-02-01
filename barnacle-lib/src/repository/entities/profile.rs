@@ -217,7 +217,7 @@ impl Profile {
         if game
             .profiles()?
             .iter()
-            .any(|p: &Profile| p.name().unwrap() == model.name)
+            .any(|p: &Profile| p.name().unwrap() == model.name())
         {
             return Err(Error::DuplicateName);
         }
