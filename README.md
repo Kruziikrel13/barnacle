@@ -12,10 +12,6 @@
 
 Barnacle is a fast, powerful mod manager for Linux.
 
-## Features
+## AI Acknowledgement
 
-* Mods are deployed via [OverlayFS](https://en.m.wikipedia.org/wiki/OverlayFS) to keep your game directory clean with negligible overhead. 
-
-## Requirements
-
-Linux ≥ 5.11 is required, as it’s the first release with rootless OverlayFS.
+For full transparency, AI was used for intial architecture brainstorming (until I realized it wasn't actually that useful), reviewing PRs with Copilot, and DeepWiki. None of the code in Barnacle was vibecoded, and clearly vibecoded PRs will not be accepted.
