@@ -1,4 +1,3 @@
-
 use crate::{
     components::library_manager::{new_game_dialog::NewGame, profiles_tab::new_dialog::NewProfile},
     icons::icon,
@@ -25,6 +24,7 @@ pub enum Message {
     TabSelected(TabId),
     CloseButtonPressed,
     NewGameButtonPressed,
+    ActivateButtonPressed(Game),
     GameRowSelected(Game),
     // Components
     NewGameDialog(new_game_dialog::Message),
@@ -38,6 +38,7 @@ pub enum Action {
     Run(Task<Message>),
     CreateGame(NewGame),
     DeleteGame(Game),
+    ActivateGame(Game),
     CreateProfile { game: Game, new_profile: NewProfile },
     DeleteProfile(Profile),
     Close,
@@ -127,6 +128,7 @@ impl LibraryManager {
                 self.show_new_game_dialog = true;
                 Action::None
             }
+            Message::ActivateButtonPressed(game) => Action::ActivateGame(game),
             Message::GameRowSelected(game) => {
                 self.selected_game = Some(game.clone());
                 Action::Run(self.profiles_tab.refresh(&game).map(Message::ProfilesTab))
@@ -209,7 +211,10 @@ impl LibraryManager {
                         self.tab_button(TabId::Profiles),
                     ];
                     let tab_view: Element<'_, Message> = match self.active_tab {
-                        TabId::Overview => text("Overview").into(),
+                        TabId::Overview => column![button(text(t!("activate"))).on_press(
+                            Message::ActivateButtonPressed(self.selected_game.clone().unwrap())
+                        )]
+                        .into(),
                         TabId::Profiles => self.profiles_tab.view().map(Message::ProfilesTab),
                     };
 

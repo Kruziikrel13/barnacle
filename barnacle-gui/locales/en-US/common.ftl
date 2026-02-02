@@ -17,6 +17,7 @@ tool = { $count ->
 }
 
 # Actions
+activate = Activate
 add = Add
 create = Create
 cancel = Cancel
