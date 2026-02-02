@@ -10,8 +10,6 @@ use iced::{
     Element, Length, Point, Task,
     widget::{button, checkbox, column, row, scrollable, table, text},
 };
-use iced_aw::Spinner;
-use sweeten::widget::mouse_area;
 use tokio::task::spawn_blocking;
 
 pub mod state;
@@ -105,17 +103,13 @@ impl ModList {
 
     pub fn view(&self) -> Element<'_, Message> {
         match &self.state {
-            State::Loading => Spinner::new().into(),
+            State::Loading => text("Loading...").into(),
             State::Error(e) => text(e).into(),
             State::Loaded(mod_entries) => {
                 let columns = [
                     table::column(
                         column_header("Name", &self.sort, SortColumn::Name),
-                        |entry: ModEntry| {
-                            mouse_area(text(entry.name().unwrap())).on_right_press(move |point| {
-                                Message::ModEntryRightClicked(entry.clone(), point)
-                            })
-                        },
+                        |entry: ModEntry| text(entry.name().unwrap()),
                     ),
                     table::column(
                         column_header("Cateogry", &self.sort, SortColumn::Category),

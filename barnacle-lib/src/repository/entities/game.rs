@@ -7,7 +7,7 @@ use std::{
 use super::Error;
 use agdb::{CountComparison, DbId, DbValue, QueryBuilder};
 use heck::ToSnakeCase;
-use tracing::debug;
+use tracing::info;
 
 use crate::repository::{
     Cfg,
@@ -125,7 +125,7 @@ impl Game {
             first_game.activate()?;
         }
 
-        debug!("Removed game: {name}");
+        info!("Removed game: {name}");
 
         Ok(())
     }
@@ -204,7 +204,7 @@ impl Game {
             first_game.activate()?;
         }
 
-        debug!("Created new game: {}", game.name()?);
+        info!("Created new game: {}", game.name()?);
 
         Ok(game)
     }

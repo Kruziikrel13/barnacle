@@ -61,8 +61,9 @@ impl ModEntry {
                 QueryBuilder::select()
                     .elements::<ProfileModel>()
                     .search()
-                    .from("profiles")
+                    // Reverse search to parent profile from mod entry
                     .to(self.entry_id.db_id(&self.db)?)
+                    .limit(1)
                     .query(),
             )?
             .elements

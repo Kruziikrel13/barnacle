@@ -4,10 +4,10 @@ use crate::repository::entities::Uid;
 
 #[derive(Debug, Clone, DbElement, PartialEq, PartialOrd)]
 pub(crate) struct ModModel {
-    pub(crate) db_id: Option<DbId>,
-    pub(crate) uid: u64,
+    db_id: Option<DbId>,
+    uid: u64,
     /// A human friendly display name
-    pub(crate) name: String,
+    name: String,
 }
 
 impl ModModel {
@@ -17,5 +17,9 @@ impl ModModel {
             uid: uid.0,
             name: name.into(),
         }
+    }
+
+    pub fn name(&self) -> &str {
+        &self.name
     }
 }

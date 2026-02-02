@@ -34,6 +34,7 @@ pub enum Message {
     GameAdded,
     GameEdited,
     GameDeleted,
+    GameActivated,
     ProfileAdded,
     ProfileDeleted,
     ProfileSelected(ProfileOption),
@@ -184,6 +185,10 @@ impl App {
                     async move { spawn_blocking(move || game.remove().unwrap()).await },
                     |_| Message::GameDeleted,
                 ),
+                library_manager::Action::ActivateGame(game) => Task::perform(
+                    async move { spawn_blocking(move || game.activate().unwrap()).await },
+                    |_| Message::GameActivated,
+                ),
                 library_manager::Action::CreateProfile { game, new_profile } => Task::perform(
                     {
                         let game = game.clone();
@@ -250,9 +255,6 @@ impl App {
                     Message::ProfileActivated,
                 )
             }
-            // BUG: For some reason when the active_profile is deleted, the GUI isn't picking up the fact that the
-            // active_profile changed to the next profile in the list, even though this is done in the lib.
-            //
             // TODO: Update the mod list too. If the profile it's referring to is deleted, it needs
             // to know.
             Message::ProfileAdded | Message::ProfileDeleted => Task::batch([
@@ -266,6 +268,10 @@ impl App {
             Message::GameAdded | Message::GameEdited | Message::GameDeleted => {
                 self.library_manager.refresh().map(Message::LibraryManager)
             }
+            Message::GameActivated => Task::batch([
+                self.library_manager.refresh().map(Message::LibraryManager),
+                self.refresh(),
+            ]),
         }
     }
 

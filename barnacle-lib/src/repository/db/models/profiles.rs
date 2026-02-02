@@ -4,9 +4,9 @@ use crate::repository::entities::Uid;
 
 #[derive(Debug, Clone, DbElement, PartialEq, PartialOrd)]
 pub(crate) struct ProfileModel {
-    pub(crate) db_id: Option<DbId>,
-    pub(crate) uid: u64,
-    pub(crate) name: String,
+    db_id: Option<DbId>,
+    uid: u64,
+    name: String,
 }
 
 impl ProfileModel {
@@ -16,5 +16,9 @@ impl ProfileModel {
             uid: uid.0,
             name: name.to_string(),
         }
+    }
+
+    pub fn name(&self) -> &str {
+        &self.name
     }
 }

@@ -7,7 +7,7 @@ use std::{
 use agdb::{DbId, DbValue, QueryBuilder, QueryId};
 use compress_tools::{Ownership, uncompress_archive};
 use heck::ToSnakeCase;
-use tracing::debug;
+use tracing::info;
 
 use crate::{
     fs::{Permissions, change_dir_permissions},
@@ -60,8 +60,9 @@ impl Mod {
                 QueryBuilder::select()
                     .elements::<GameModel>()
                     .search()
-                    .from("games")
+                    // Reverse search to parent game from mod
                     .to(db_id)
+                    .limit(1)
                     .query(),
             )?
             .elements
@@ -83,7 +84,7 @@ impl Mod {
         if game
             .mods()?
             .iter()
-            .any(|m: &Mod| m.name().unwrap() == model.name)
+            .any(|m: &Mod| m.name().unwrap() == model.name())
         {
             return Err(Error::DuplicateName);
         }
@@ -137,7 +138,7 @@ impl Mod {
 
         fs::remove_dir_all(dir).unwrap();
 
-        debug!("Removed mod: {name}");
+        info!("Removed mod: {name}");
 
         Ok(())
     }

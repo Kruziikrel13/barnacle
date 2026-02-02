@@ -2,6 +2,7 @@ use std::path::Path;
 
 use barnacle_lib::Repository;
 use clap::Subcommand;
+use sysexits::ExitCode;
 
 #[derive(Subcommand, Debug, Clone)]
 pub enum Command {
@@ -35,8 +36,10 @@ pub fn handle(repo: &Repository, cmd: &Command) {
             }
         } else {
             eprintln!("No active profile");
+            ExitCode::Usage.exit()
         }
     } else {
-        eprintln!("No active game")
+        eprintln!("No active game");
+        ExitCode::Usage.exit()
     }
 }

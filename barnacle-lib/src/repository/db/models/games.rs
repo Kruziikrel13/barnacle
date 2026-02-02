@@ -27,11 +27,11 @@ pub enum DeployKind {
 
 #[derive(Debug, Clone, DbElement, PartialEq, PartialOrd)]
 pub(crate) struct GameModel {
-    pub(crate) db_id: Option<DbId>,
-    pub(crate) uid: u64,
-    pub(crate) name: String,
-    pub(crate) targets: Vec<PathBuf>,
-    pub(crate) deploy_kind: DeployKind,
+    db_id: Option<DbId>,
+    uid: u64,
+    name: String,
+    targets: Vec<PathBuf>,
+    deploy_kind: DeployKind,
 }
 
 impl GameModel {
