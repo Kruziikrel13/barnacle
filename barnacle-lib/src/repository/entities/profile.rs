@@ -110,24 +110,22 @@ impl Profile {
             .read()
             .exec(
                 QueryBuilder::select()
+                    .elements::<ProfileModel>()
                     .search()
                     .from(game_id)
+                    .limit(1) // Stop after finding 1 matching element
                     .where_()
+                    .element::<ProfileModel>()
+                    .and()
                     .beyond()
                     .where_()
-                    .keys("active")
-                    .or()
+                    // This is to search past the origin element which is a node
                     .node()
-                    .end_where()
-                    .and()
-                    .element::<ProfileModel>()
+                    .or()
+                    .keys("active")
                     .query(),
             )?
             .elements;
-
-        if elements.len() > 1 {
-            panic!("there should only be one active profile");
-        }
 
         // If we have an active profile, load it
         if let Some(active) = elements.first() {
@@ -147,8 +145,9 @@ impl Profile {
                 QueryBuilder::select()
                     .elements::<GameModel>()
                     .search()
-                    .from("games")
+                    // Reverse search to parent game from profile
                     .to(self.id.db_id(&self.db)?)
+                    .limit(1)
                     .query(),
             )?
             .elements

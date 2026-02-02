@@ -60,8 +60,9 @@ impl Mod {
                 QueryBuilder::select()
                     .elements::<GameModel>()
                     .search()
-                    .from("games")
+                    // Reverse search to parent game from mod
                     .to(db_id)
+                    .limit(1)
                     .query(),
             )?
             .elements
