@@ -12,12 +12,14 @@ barnacle-lib = { path = "../barnacle-lib" }
 derive_more = { version = "2.1.1", features = ["deref", "deref_mut"] }
 fluent-i18n = "0.1.0"
 human-panic = "2.0.4"
-iced = { git = "https://github.com/iced-rs/iced", features = ["tokio", "svg", "advanced"] }
+iced = { version = "0.14.0", features = ["tokio", "svg", "advanced"] }
+iced_aw = { version = "0.13.0", features = ["spinner"], default-features = false }
 include_dir = "0.7.4"
 parking_lot = "0.12.5"
 rfd = "0.17.2"
 serde = { version = "1.0.228", features = ["derive"] }
 strum = "0.27.2"
+sweeten = { git = "https://github.com/airstrike/sweeten" }
 tokio = { version = "1.49.0", features = ["sync"] }
 toml = "0.9.11"
 tracing = "0.1.44"

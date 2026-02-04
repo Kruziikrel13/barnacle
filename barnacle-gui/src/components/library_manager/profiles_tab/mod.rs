@@ -10,6 +10,7 @@ use iced::{
     Element, Length, Task,
     widget::{Column, button, column, container, row, scrollable, space, text},
 };
+use iced_aw::Spinner;
 use tokio::task::spawn_blocking;
 
 use crate::components::library_manager::profiles_tab::{
@@ -143,7 +144,7 @@ impl Tab {
     }
     pub fn view(&self) -> Element<'_, Message> {
         let content = match &self.state {
-            State::Loading => text("Loading...").into(),
+            State::Loading => Spinner::new().into(),
             State::Error(e) => text(e).into(),
             State::Loaded(profiles) => column![
                 button(text(t!("new"))).on_press(Message::NewButtonPressed),

@@ -12,6 +12,7 @@ use iced::{
     Element, Length, Task,
     widget::{Column, button, column, container, row, rule, scrollable, space, text},
 };
+use iced_aw::Spinner;
 use tokio::task::spawn_blocking;
 
 pub mod new_game_dialog;
@@ -188,7 +189,7 @@ impl LibraryManager {
         .on_press(Message::NewGameButtonPressed);
 
         let body: Element<'_, Message> = match &self.state {
-            State::Loading => text("Loading...").into(),
+            State::Loading => Spinner::new().into(),
             State::Error(e) => text(e).into(),
             State::NoGames => column![text("No games"), new_game_button].into(),
             State::Loaded { active_game, games } => {
