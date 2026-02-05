@@ -46,11 +46,11 @@ impl Game {
             return Ok(());
         }
 
-        let old_dir = self.dir()?;
+        let old_dir = self.library_dir()?;
 
         self.set_field("name", new_name)?;
 
-        let new_dir = self.dir()?;
+        let new_dir = self.library_dir()?;
         fs::rename(old_dir, new_dir).unwrap();
 
         Ok(())
@@ -72,7 +72,7 @@ impl Game {
         self.set_field("deploy_kind", new_deploy_kind)
     }
 
-    pub fn dir(&self) -> Result<PathBuf> {
+    pub fn library_dir(&self) -> Result<PathBuf> {
         Ok(self
             .cfg
             .read()
@@ -110,7 +110,7 @@ impl Game {
 
         // We have to store these so we can still access them once the game is deleted
         let name = self.name()?;
-        let dir = self.dir()?;
+        let dir = self.library_dir()?;
         let id = self.id.db_id(&self.db)?;
         self.db
             .write()
@@ -195,7 +195,7 @@ impl Game {
 
         let game = Game::load(db_id, db.clone(), cfg.clone())?;
 
-        fs::create_dir_all(game.dir().unwrap()).unwrap();
+        fs::create_dir_all(game.library_dir().unwrap()).unwrap();
 
         // Bootstrap active game if there isn't one set
         if Game::active(db.clone(), cfg.clone())?.is_none()
@@ -343,7 +343,7 @@ mod test {
 
         let games = repo.games().unwrap();
 
-        assert!(game1.dir().unwrap().exists());
+        assert!(game1.library_dir().unwrap().exists());
         assert_eq!(games.len(), 2);
         assert_eq!(games.first().unwrap().name().unwrap(), "Morrowind");
         assert_eq!(
@@ -374,7 +374,7 @@ mod test {
 
         assert_eq!(repo.games().unwrap().len(), 1);
 
-        let dir = game.dir().unwrap();
+        let dir = game.library_dir().unwrap();
 
         game.remove().unwrap();
 
@@ -459,7 +459,7 @@ mod test {
             .library_dir()
             .join(game.name().unwrap().to_snake_case());
 
-        assert_eq!(game.dir().unwrap(), expected_dir);
+        assert_eq!(game.library_dir().unwrap(), expected_dir);
     }
 
     #[test]

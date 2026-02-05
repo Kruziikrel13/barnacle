@@ -45,7 +45,7 @@ impl Mod {
     pub fn dir(&self) -> Result<PathBuf> {
         Ok(self
             .parent()?
-            .dir()?
+            .library_dir()?
             .join("mods")
             .join(self.name()?.to_snake_case()))
     }

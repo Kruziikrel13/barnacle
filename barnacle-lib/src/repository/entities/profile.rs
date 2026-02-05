@@ -57,7 +57,7 @@ impl Profile {
     pub fn dir(&self) -> Result<PathBuf> {
         Ok(self
             .parent()?
-            .dir()?
+            .library_dir()?
             .join("profiles")
             .join(self.name()?.to_snake_case()))
     }
